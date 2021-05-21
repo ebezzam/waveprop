@@ -1,19 +1,21 @@
 # waveprop
 
-Scripts and functions to simulate free-space optical propagation. In the `examples` folder:
+Scripts and functions to simulate free-space optical propagation. 
+
+In the `examples` folder:
 - `circ_ap_fraunhofer.py`: simulate circular aperture in the Fraunhofer regime.
 - `rect_ap_fresnel.py`: simulate square aperture in the Fresnel regime.
 - `circ_ap_lab.py`: simulate circular aperture with command-line defined arguments. Default is our lab setup.
 - `rect_ap_lab.py`: simulate rectangular aperture with command-line defined arguments. Default is our lab setup.
-- `single_slit_lab.py`: simulate rectangular aperture with command-line defined arguments. Default is our lab setup.
+- `single_slit_lab.py` (WIP): simulate single-slit with command-line defined arguments. Default is our lab setup.
 
 NB: `click` is required for some of the scripts for parsing command-line arguments.
 
-Following propagation models are implemented:
-- Fraunhofer
-- Fresnel (one-step, two-step, angular spectrum)
-- Angular spectrum, with evanescent waves and option to bandlimit
-- Direct integration
+Following propagation models are implemented. All make use of FFT unless otherwise noted.
+- Fraunhofer.
+- Fresnel (one-step, two-step, angular spectrum).
+- Angular spectrum, with evanescent waves and option to bandlimit.
+- Direct integration, "brute force" numerical integration.
 
 ## Local install
 
@@ -39,11 +41,12 @@ versions in the docstrings):
 - "Fundamentals of Photonics" by Saleh and Teich (Third Edition).
 - "Principles of Optics" by Born and Wolf (Seventh Edition).
 
-A description of the Direct Integration (DI) method and its FFT version (todo) can be found in 
+A description of the Direct Integration (DI) method and its FFT version can be found in 
 ["Fast-Fourier-transform based numerical integration method for the Rayleigh–Sommerfeld diffraction 
 formula" (2006)](https://www.osapublishing.org/ao/fulltext.cfm?uri=ao-45-6-1102&id=87971). This 
-serves as a good baseline as it is an approximation of the Rayleigh-Sommerfled diffraction integral
-through via a Riemann sum (Eq 9).
+serves as a good baseline as it is an approximation of the Rayleigh-Sommerfeld diffraction integral 
+via a Riemann sum (Eq 9). Main drawbacks are computational load, as DI directly performs the 
+discrete convolution and FFT-DI requires three FFTs.
 
 The angular spectrum (AS) approach is another well-known formulation that is directly derived from 
 the Rayleigh-Sommerfeld equation. However, it tends to have issues outside of the scenarios of
@@ -58,9 +61,9 @@ Their index-to-frequency mapping and FFT shifting seemed to be off, and they did
 
 Propagation models:
 - FFT-DI, "Fast-Fourier-transform based numerical integration method for the Rayleigh–Sommerfeld diffraction 
-formula"
-- Interpolation of angular spectrum with FS coefficients
-- Shifted Fresnel method, "Shifted Fresnel diffraction for computational holography"
+formula".
+- Interpolation of angular spectrum with FS coefficients (ours).
+- Shifted Fresnel method, "Shifted Fresnel diffraction for computational holography".
 
 Examples:
 - For single slit, something terribly wrong. Compare with following results:
@@ -69,7 +72,7 @@ Examples:
     - https://www.osapublishing.org/josa/fulltext.cfm?uri=josa-59-3-293&id=53644
 - Double slit
 
-Analytic forms:
+Analytic forms of:
 - Fresnel circular aperture
 - Fresnel rectangular aperture
 
