@@ -9,6 +9,12 @@ Scripts and functions to simulate free-space optical propagation. In the `exampl
 
 NB: `click` is required for some of the scripts for parsing command-line arguments.
 
+Following propagation models are implemented:
+- Fraunhofer
+- Fresnel (one-step, two-step, angular spectrum)
+- Angular spectrum, with evanescent waves and option to bandlimit
+- Direct integration
+
 ## Local install
 
 ```sh
@@ -50,16 +56,24 @@ Their index-to-frequency mapping and FFT shifting seemed to be off, and they did
 
 ## TODO
 
-- FFT-DI
-- Using FS coefficients to interpolate angular spectrum beyond grid defined by FFT
+Propagation models:
+- FFT-DI, "Fast-Fourier-transform based numerical integration method for the Rayleigh–Sommerfeld diffraction 
+formula"
+- Interpolation of angular spectrum with FS coefficients
+- Shifted Fresnel method, "Shifted Fresnel diffraction for computational holography"
+
+Examples:
 - For single slit, something terribly wrong. Compare with following results:
     - https://core.ac.uk/download/pdf/233057112.pdf
     - https://www.osapublishing.org/josa/fulltext.cfm?uri=josa-59-3-293&id=53644
     - https://www.osapublishing.org/josa/fulltext.cfm?uri=josa-59-3-293&id=53644
-- Analytic
-    - Fresnel circular aperture
-    - Fresnel rectangular aperture
 - Double slit
+
+Analytic forms:
+- Fresnel circular aperture
+- Fresnel rectangular aperture
+
+Compare / mention complexity of different approaches
 
 ## Other libraries
 
