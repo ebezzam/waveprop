@@ -20,19 +20,6 @@ source waveprop_env/bin/activate
 pip install -e .
 ```
 
-## TODO
-
-- FFT-DI
-- Using FS coefficients to interpolate angular spectrum beyond grid defined by FFT
-- For single slit, something terribly wrong. Compare with following results:
-    - https://core.ac.uk/download/pdf/233057112.pdf
-    - https://www.osapublishing.org/josa/fulltext.cfm?uri=josa-59-3-293&id=53644
-    - https://www.osapublishing.org/josa/fulltext.cfm?uri=josa-59-3-293&id=53644
-- Analytic
-    - Fresnel circular aperture
-    - Fresnel rectangular aperture
-- Double slit
-
 ## Literature and references
 
 Fraunhofer and Fresnel numerical approaches come from the textbook ["Numerical Simulation of Optical 
@@ -61,6 +48,18 @@ implementation of this approach has been largely replicated from [the code](http
 of ["Neural holography with camera-in-the-loop training"](https://dl.acm.org/doi/abs/10.1145/3414685.3417802). 
 Their index-to-frequency mapping and FFT shifting seemed to be off, and they did not include evanescent waves; both of which were modified for the implementation found here.
 
+## TODO
+
+- FFT-DI
+- Using FS coefficients to interpolate angular spectrum beyond grid defined by FFT
+- For single slit, something terribly wrong. Compare with following results:
+    - https://core.ac.uk/download/pdf/233057112.pdf
+    - https://www.osapublishing.org/josa/fulltext.cfm?uri=josa-59-3-293&id=53644
+    - https://www.osapublishing.org/josa/fulltext.cfm?uri=josa-59-3-293&id=53644
+- Analytic
+    - Fresnel circular aperture
+    - Fresnel rectangular aperture
+- Double slit
 
 ## Other libraries
 
