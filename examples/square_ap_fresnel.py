@@ -11,8 +11,8 @@ in MATLAB" (2010).
 import numpy as np
 import matplotlib.pyplot as plt
 
-from util import rect, sample_points
-from prop import (
+from waveprop.util import rect2d, sample_points
+from waveprop.prop import (
     fraunhofer_prop_rect_ap,
     fresnel_one_step,
     fresnel_prop_square_ap,
@@ -21,7 +21,7 @@ from prop import (
     angular_spectrum,
     direct_integration,
 )
-from condition import (
+from waveprop.condition import (
     fraunhofer_schmidt,
     fraunhofer_goodman,
     fraunhofer_saleh,
@@ -30,7 +30,7 @@ from condition import (
 )
 
 
-N = 1024  # number of grid points per size
+N = 512  # number of grid points per size
 L = 1e-2  # total size of grid
 diam = 2e-3  # diameter of aperture [m]
 wv = 1e-6  # wavelength
@@ -38,13 +38,14 @@ dz = 1  # distance [m]
 d1 = L / N  # source-plane grid spacing
 
 # plot param
-xlim = 0.001
+xlim = 0.01
+log_scale = False
 
 print("\nPROPAGATION DISTANCE : {} m".format(dz))
 
 """ discretize aperture """
 x1, y1 = sample_points(N=N, delta=d1)
-u_in = rect(x1 / diam) * rect(y1 / diam)
+u_in = rect2d(x1, y1, diam)
 
 """ Fresnel propagation """
 
@@ -84,26 +85,48 @@ u_out_asm_bl, _, _ = angular_spectrum(u_in=u_in, wv=wv, delta=d1, dz=dz, bandlim
 
 
 """ Direct integration (ground truth) """
-# TODO : something wrong in DI computation, very flat...
 u_out_di = direct_integration(u_in, wv, d1, dz, x=x_asm[0], y=[0])
 
 
 """ Plot """
-
 # plot y2 = 0 cross-section
 idx = y2[:, 0] == 0
 plt.figure()
-# plt.plot(x2[0], np.abs(u_out_fraun[:, idx]), label="fraunhofer (theoretical)")
+plt.plot(x2[0], np.abs(u_out_fraun[:, idx]), label="fraunhofer (theoretical)")
 plt.plot(x2[0], np.abs(u_out_fres_one_step[idx][0]), label="fresnel (one step)")
 plt.plot(x2[0], np.abs(u_out_fres_two_step[idx][0]), label="fresnel (two step)")
 plt.plot(x2[0], np.abs(u_out_fres_conv[idx][0]), label="fresnel (conv)")
 plt.plot(x2[0], np.abs(u_out_th_fres[idx][0]), label="fresnel (theoretical)")
+plt.plot(x_asm[0], np.abs(u_out_di[0]), label="direct integration")
+
+plt.xlabel("x[m]")
+plt.title("log amplitude, y2 = 0")
+plt.legend()
+if log_scale:
+    plt.yscale("log")
+if xlim is not None:
+    xlim = min(xlim, np.max(x_asm))
+else:
+    xlim = np.max(x_asm)
+plt.xlim([-xlim, xlim])
+
+# plot y2 = 0 cross-section
+idx = y2[:, 0] == 0
+plt.figure()
+plt.plot(x2[0], np.abs(u_out_th_fres[idx][0]), label="fresnel (theoretical)")
 plt.plot(x_asm[0], np.abs(u_out_asm[idx][0]), label="angular spectrum (numerical)")
 plt.plot(x_asm[0], np.abs(u_out_asm_bl[idx][0]), label="angular spectrum (numerical, BL)")
 plt.plot(x_asm[0], np.abs(u_out_di[0]), label="direct integration")
-plt.legend()
 
-xlim = min(xlim, np.max(x_asm))
+plt.xlabel("x[m]")
+plt.title("log amplitude, y2 = 0")
+plt.legend()
+if log_scale:
+    plt.yscale("log")
+if xlim is not None:
+    xlim = min(xlim, np.max(x_asm))
+else:
+    xlim = np.max(x_asm)
 plt.xlim([-xlim, xlim])
 
 # plot input
@@ -115,7 +138,7 @@ fig = plt.gcf()
 fig.colorbar(cp, ax=ax, orientation="vertical")
 ax.set_xlabel("x [m]")
 ax.set_ylabel("y [m]")
-
+ax.set_title("Aperture")
 
 # plot output
 xlim = np.max(x_asm)

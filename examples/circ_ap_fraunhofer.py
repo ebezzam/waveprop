@@ -12,15 +12,11 @@ Added Fresnel propagation and direct integration for comparison.
 
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import ticker
 
-from util import circ, sample_points
-from prop import (
-    fraunhofer,
-    fraunhofer_prop_circ_ap,
-    fresnel_one_step,
-    direct_integration,
-)
-from condition import fraunhofer_schmidt, fraunhofer_goodman, fraunhofer_saleh
+from waveprop.util import circ, sample_points
+from waveprop.prop import fraunhofer, fraunhofer_prop_circ_ap, fresnel_one_step, direct_integration
+from waveprop.condition import fraunhofer_schmidt, fraunhofer_goodman, fraunhofer_saleh
 
 
 N = 512  # number of grid points per size
@@ -31,7 +27,7 @@ dz = 20  # distance [m]
 d1 = L / N  # source-plane grid spacing
 
 # plot param
-xlim = 0.1
+xlim = None
 
 print("\nPROPAGATION DISTANCE : {} m".format(dz))
 
@@ -66,9 +62,13 @@ plt.plot(x2[0], np.abs(u_out_fraun[:, idx]), label="fraunhofer (numerical)")
 plt.plot(x2[0], np.abs(u_out_fraun_th[:, idx]), label="fraunhofer (theoretical)")
 plt.plot(x2_fres[0], np.abs(u_out_fres[:, idx]), label="fresnel (numerical)")
 plt.plot(x2[0], np.abs(u_out_di[0]), label="direct integration")
+plt.xlabel("x[m]")
+plt.title("log amplitude, y2 = 0")
 
 plt.legend()
-plt.xlim([-xlim, xlim])
+plt.yscale("log")
+if xlim is not None:
+    plt.xlim([-xlim, xlim])
 
 # plot input
 X1, Y1 = np.meshgrid(x1, y1)
@@ -79,12 +79,13 @@ fig = plt.gcf()
 fig.colorbar(cp, ax=ax, orientation="vertical")
 ax.set_xlabel("x [m]")
 ax.set_ylabel("y [m]")
+ax.set_title("Aperture")
 
 # plot outputs
 fig = plt.figure()
 ax = fig.add_subplot(1, 1, 1)
 X2, Y2 = np.meshgrid(x2, y2)
-cp = ax.contourf(X2, Y2, np.abs(u_out_fraun))
+cp = ax.contourf(X2, Y2, np.abs(u_out_fraun), locator=ticker.LogLocator())
 fig = plt.gcf()
 fig.colorbar(cp, ax=ax, orientation="vertical")
 ax.set_title("Fraunhofer diffraction pattern")

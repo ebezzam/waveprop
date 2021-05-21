@@ -1,5 +1,5 @@
 import numpy as np
-from util import ft2, ift2, jinc, sample_points
+from waveprop.util import ft2, ift2, jinc, sample_points
 from scipy.special import fresnel
 
 
@@ -372,8 +372,6 @@ def angular_spectrum(u_in, wv, delta, dz, bandlimit=True):
     """
     Band-Limited Angular Spectrum Method for Numerical Simulation of Free-Space Propagation in Far
     and Near Fields (2009)
-
-    Code inspiration: https://github.com/computational-imaging/neural-holography/blob/d2e399014aa80844edffd98bca34d2df80a69c84/propagation_ASM.py#L22
 
     TODO : set data type
     TODO : set output sampling

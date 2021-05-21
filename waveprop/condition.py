@@ -46,6 +46,24 @@ def fresnel_saleh(wv, dz, x, y, tol=TOL, verbose=True):
     # return N_F * theta_m ** 2 / 4 < tol
 
 
+def fraunhofer_valid_output_region(wv, dz, tol=TOL):
+    """
+    From Saleh, by looking at Fresnel number, Eq 4.2-2
+    """
+    return np.sqrt(wv * dz * tol)
+
+
+def fresnel_valid_output_region(wv, dz, tol=TOL):
+    """
+    From Saleh, by looking at Fresnel number, Eq 4.1-13 isolate radius `a`
+    """
+    return (wv * dz ** 3 * 4 * tol) ** (1 / 4)
+
+
+def distance_from_output_region(wv, r_out, tol=TOL):
+    return r_out ** 2 / wv / tol
+
+
 def fraunhofer_saleh(wv, dz, x1, y1, x2, y2, tol=TOL, verbose=True):
     """
     Eq. 4.2-2
@@ -77,7 +95,7 @@ def fraunhofer_saleh(wv, dz, x1, y1, x2, y2, tol=TOL, verbose=True):
     return dz > cond
 
 
-def fraunhofer_schmidt(wv, dz, D, verbose=True):
+def fraunhofer_schmidt(wv, dz, diam, verbose=True):
     """
     Eq. 4.2 of Numerical Simulation of Optical Wave Propagation with Examples in MATLAB.
 
@@ -89,10 +107,10 @@ def fraunhofer_schmidt(wv, dz, D, verbose=True):
     ----------
     wv: wavelength [m]
     dz : distance to observation plane [m]
-    D : diameter of source aperture[m]
+    diam : diameter of source aperture[m]
 
     """
-    cond = 2 * D ** 2 / wv
+    cond = 2 * diam ** 2 / wv
     if verbose:
         if dz > cond:
             print("Weak Fraunhofer condition [>{} m] met!".format(cond))
@@ -101,9 +119,9 @@ def fraunhofer_schmidt(wv, dz, D, verbose=True):
     return dz > cond
 
 
-def fresnel_goodman(wv, dz, x1, y1, x2, y2, tol=TOL, verbose=True):
+def fresnel_goodman(wv, dz, x1, y1, x2, y2, tol=TOL, verbose=True, get_val=False):
     """
-    Eq. 4-18
+    Eq. 4-18 (Second Edition).
 
     Parameters
     ----------
@@ -120,7 +138,10 @@ def fresnel_goodman(wv, dz, x1, y1, x2, y2, tol=TOL, verbose=True):
             print("Goodman Fresnel condition [>{} m] met!".format(cond))
         else:
             print("Goodman Fresnel condition [>{} m] NOT met!".format(cond))
-    return dz > cond
+    if not get_val:
+        return dz > cond
+    else:
+        return cond
 
 
 def fraunhofer_goodman(wv, dz, x1, y1, x2, y2, tol=TOL, verbose=True):
@@ -136,12 +157,16 @@ def fraunhofer_goodman(wv, dz, x1, y1, x2, y2, tol=TOL, verbose=True):
     x2 : observation x-coordinates [m]
     y2 : observation y-coordinates [m]
     """
+
+    # (typically) weaker Fresnel
+    cond = fresnel_goodman(wv, dz, x1, y1, x2, y2, tol, verbose=False, get_val=True)
+
+    # (typically) stricter Fraunhofer condition
     k = 2 * np.pi / wv
     max_rad = np.max(x1 ** 2 + y1 ** 2)
-    fresnel_cond = fresnel_goodman(wv, dz, x1, y1, x2, y2, tol, verbose=False)
-    cond = k * max_rad / 2 * tol
+    cond = max(k * max_rad / 2 * tol, cond)
     if verbose:
-        if dz > cond and fresnel_cond:
+        if dz > cond:
             print("Goodman Fraunhofer condition [>{} m] met!".format(cond))
         else:
             print("Goodman Fraunhofer condition [>{} m] NOT met!".format(cond))

@@ -87,7 +87,7 @@ def circ(x, y, diam):
     return z
 
 
-def rect(x, D=1):
+def rect(x, D):
     """
     Sample 1D rectangular function.
 
@@ -106,6 +106,24 @@ def rect(x, D=1):
     y = (x < D / 2).astype(float)
     y[x == D / 2] = 0.5
     return y
+
+
+def rect2d(x, y, D):
+    """
+    Sample 2D rectangular function.
+
+    Parameters
+    ----------
+    x : :py:class:`~numpy.ndarray`
+        Sample coordinates [m].
+    D : float or int or list
+        Width of rectangular function. Scalar can be provided for square aperture.
+
+    """
+    if isinstance(D, float) or isinstance(D, int):
+        D = [D, D]
+    assert len(D) == 2
+    return rect(x, D[0]) * rect(y, D[1])
 
 
 def jinc(x):
