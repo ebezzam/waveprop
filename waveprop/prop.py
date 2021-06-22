@@ -78,7 +78,7 @@ def fraunhofer_prop_circ_ap(wv, dz, diam, x, y):
     )
 
 
-def fraunhofer_prop_rect_ap(wv, dz, x, y, lx, ly):
+def fraunhofer_prop_rect_ap(wv, dz, x, y, lx, ly=None):
     """
     Analytic formula for Fraunhofer diffraction pattern of a rectangular aperture.
 
@@ -100,6 +100,8 @@ def fraunhofer_prop_rect_ap(wv, dz, x, y, lx, ly):
         Width in y-dimension [m].
 
     """
+    if ly is None:
+        ly = lx
     k = 2 * np.pi / wv
     return (
         np.exp(1j * k * dz)
@@ -303,7 +305,7 @@ def fresnel_prop_square_ap(x, y, width, wv, dz):
 
 def free_space_impulse_response(k, x, y, z):
     """
-    Impulse response of angular spectrum method.
+    Impulse response of Rayleigh-Sommerfeld.
 
     Eq 7 of "Fast-Fourier-transform based numerical integration method for the Rayleigh–Sommerfeld
     diffraction formula" (2006).
@@ -332,18 +334,20 @@ def direct_integration(u_in, wv, d1, dz, x, y):
     Eq 9 of "Fast-Fourier-transform based numerical integration method for the Rayleigh–Sommerfeld
     diffraction formula" (2006).
 
+    TODO : add Simpson / Trapezoidal rule
+
     Parameters
     ----------
-    u_in : n:py:class:`~numpy.ndarray`
+    u_in : array_like
         Input amplitude distribution, [Ny, Nx].
     wv : float
         Wavelength [m].
     d1 : float
         Input sampling period for both x-dimension and y-dimension [m].
-    x : :py:class:`~numpy.ndarray`
-        [1 x Nx] array of x-coordinates [m].
-    y : :py:class:`~numpy.ndarray`
-        [Ny x 1] array of y-coordinates [m].
+    x : array_like
+        [1 x Nx] array of output x-coordinates [m].
+    y : array_like
+        [Ny x 1] array of output y-coordinates [m].
     dz : float
         Propagation distance [m].
 
@@ -366,6 +370,107 @@ def direct_integration(u_in, wv, d1, dz, x, y):
             tmp = np.multiply(G, u_in)
             u_out[j, i] = np.sum(tmp) * d1[0] * d1[1]
     return u_out
+
+
+def fft_di(u_in, wv, d1, dz, N_out=None, use_simpson=True):
+    """
+
+    Simpson can only be used if u_in has odd dimensions, for even fall back on trapezoidal: https://www.intmath.com/integration/5-trapezoidal-rule.php
+    - https://en.wikipedia.org/wiki/Simpson%27s_rule
+
+    Parameters
+    ----------
+    u_in : array_like
+        Input amplitude distribution, [Ny, Nx].
+    wv : float
+        Wavelength [m].
+    d1 : float
+        Input sampling period for both x-dimension and y-dimension [m].
+    dz : float
+        Propagation distance [m].
+    N_out : int or list or tuple, optional
+        Number of output samples, also determines the size of the output window. Default is same
+        number of points, and therefore same area, as the input.
+    use_simpson : bool, optional
+        Whether to use Simpson's rule to improve calculation accuracy. Note that Simpson's rule can
+        only be applied if the dimension is odd. If the dimension is even, trapezoid rule will be
+        used instead.
+
+    """
+    if isinstance(d1, float) or isinstance(d1, int):
+        d1 = [d1, d1]
+    assert len(d1) == 2
+    if N_out is None:
+        N_out = [u_in.shape[1], u_in.shape[0]]
+    if isinstance(N_out, float) or isinstance(N_out, int):
+        N_out = [N_out, N_out]
+    assert len(N_out) == 2
+
+    k = 2 * np.pi / wv
+
+    # output coordinates
+    x2, y2 = sample_points(N=N_out, delta=d1)
+
+    # source coordinates
+    Ny, Nx = u_in.shape
+    x1, y1 = sample_points(N=[Nx, Ny], delta=d1)
+
+    # zero-pad
+    Nx_out = N_out[0]
+    Ny_out = N_out[1]
+    u_in_pad = np.zeros((Ny_out + Ny - 1, Nx_out + Nx - 1))
+
+    if use_simpson:
+        # Equation 17
+        Bx = np.ones((1, Nx))
+        if Nx % 2:
+            Bx[0, 1::2] += 3
+            Bx[0, 2::2] += 1
+            Bx[0, -1] = 1
+            Bx /= 3
+        else:
+            # trapezoidal rule
+            Bx[0, 0] = 0.5
+            Bx[0, -1] = 0.5
+
+        By = np.ones((Ny, 1))
+        if Ny % 2:
+            By[1::2] += 3
+            By[2::2] += 1
+            By[-1] = 1
+            By /= 3
+        else:
+            # trapezoidal rule
+            By[0] = 0.5
+            By[-1] = 0.5
+        W = By @ Bx
+        u_in_pad[:Ny, :Nx] = u_in * W
+    else:
+        u_in_pad[:Ny, :Nx] = u_in
+
+    # compute spatial response, Eq 12
+    x1 = np.squeeze(x1)
+    y1 = np.squeeze(y1)
+    # -- prepare X coord, Eq 13
+    X = np.zeros(Nx_out + Nx - 1)
+    xin_rev = x1[::-1]
+    X[: Nx - 1] = x2[0, 0] - xin_rev[: Nx - 1]
+    X[Nx - 1 :] = np.squeeze(x2) - x1[0]
+    X = X[np.newaxis, :]
+    # -- prepare Y coord, Eq 14
+    Y = np.zeros(Ny_out + Ny - 1)
+    yin_rev = y1[::-1]
+    Y[: Ny - 1] = y2[0, 0] - yin_rev[: Ny - 1]
+    Y[Ny - 1 :] = np.squeeze(y2) - y1[0]
+    Y = Y[:, np.newaxis]
+    # -- get impulse response matrix
+    H = free_space_impulse_response(k, X, Y, dz)
+
+    # Eq 10
+    S = np.fft.ifft2(np.fft.fft2(u_in_pad) * np.fft.fft2(H)) * d1[0] * d1[1]
+
+    # lower right submatrix
+    return S[-Ny_out:, -Nx_out:], x2, y2
 
 
 def angular_spectrum(u_in, wv, delta, dz, bandlimit=True):

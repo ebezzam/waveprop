@@ -12,10 +12,21 @@ Added Fresnel propagation and direct integration for comparison.
 
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib import ticker
 
-from waveprop.util import circ, sample_points
-from waveprop.prop import fraunhofer, fraunhofer_prop_circ_ap, fresnel_one_step, direct_integration
+import matplotlib
+
+font = {"family": "Times New Roman", "weight": "normal", "size": 20}
+matplotlib.rc("font", **font)
+ALPHA = 0.7
+
+from waveprop.util import circ, sample_points, plot2d
+from waveprop.prop import (
+    fraunhofer,
+    fraunhofer_prop_circ_ap,
+    fresnel_one_step,
+    fft_di,
+    direct_integration,
+)
 from waveprop.condition import fraunhofer_schmidt, fraunhofer_goodman, fraunhofer_saleh
 
 
@@ -27,7 +38,7 @@ dz = 20  # distance [m]
 d1 = L / N  # source-plane grid spacing
 
 # plot param
-xlim = None
+xlim = 0.1
 
 print("\nPROPAGATION DISTANCE : {} m".format(dz))
 
@@ -51,46 +62,48 @@ fraunhofer_saleh(wv, dz, x1, y1, x2, y2)
 """ Fresnel approximation """
 u_out_fres, x2_fres, y2_fres = fresnel_one_step(u_in, wv, d1, dz)
 
-""" Direct integration (ground truth) """
-u_out_di = direct_integration(u_in, wv, d1, dz, x=x2[0], y=[0])
+
+""" FFT direct integration"""
+# x2_fft_di, y2_fft_di = sample_points(N=N * 8, delta=d1)
+u_out_fft_di, x2_fft_di, y2_fft_di = fft_di(u_in, wv, d1, dz, N_out=N * 8, use_simpson=True)
+
+# """ Direct integration (ground truth) """
+# u_out_di = direct_integration(u_in, wv, d1, dz, x=x2[0], y=[0])
 
 """ Plot """
 # plot y2 = 0 cross-section
 idx = y2[:, 0] == 0
+idx_fft_di = y2_fft_di[:, 0] == 0
 plt.figure()
-plt.plot(x2[0], np.abs(u_out_fraun[:, idx]), label="fraunhofer (numerical)")
-plt.plot(x2[0], np.abs(u_out_fraun_th[:, idx]), label="fraunhofer (theoretical)")
+plt.plot(
+    x2[0], np.abs(u_out_fraun[:, idx]), marker="o", label="fraunhofer (numerical)", alpha=ALPHA
+)
+plt.plot(
+    x2[0], np.abs(u_out_fraun_th[:, idx]), marker="x", label="fraunhofer (theoretical)", alpha=ALPHA
+)
 plt.plot(x2_fres[0], np.abs(u_out_fres[:, idx]), label="fresnel (numerical)")
-plt.plot(x2[0], np.abs(u_out_di[0]), label="direct integration")
+plt.plot(x2_fft_di[0], np.abs(u_out_fft_di[:, idx_fft_di]), marker="*", label="FFT-DI", alpha=ALPHA)
+# plt.plot(x2[0], np.abs(u_out_di[0]), marker="*", label="direct integration", alpha=ALPHA)
 plt.xlabel("x[m]")
-plt.title("log amplitude, y2 = 0")
+plt.title("amplitude, y = 0")
 
 plt.legend()
-plt.yscale("log")
+# plt.yscale("log")
 if xlim is not None:
     plt.xlim([-xlim, xlim])
 
 # plot input
-X1, Y1 = np.meshgrid(x1, y1)
-fig = plt.figure()
-ax = fig.add_subplot(1, 1, 1)
-cp = ax.contourf(X1, Y1, u_in)
-fig = plt.gcf()
-fig.colorbar(cp, ax=ax, orientation="vertical")
-ax.set_xlabel("x [m]")
-ax.set_ylabel("y [m]")
+ax = plot2d(x1.squeeze(), y1.squeeze(), u_in)
 ax.set_title("Aperture")
 
 # plot outputs
-fig = plt.figure()
-ax = fig.add_subplot(1, 1, 1)
-X2, Y2 = np.meshgrid(x2, y2)
-cp = ax.contourf(X2, Y2, np.abs(u_out_fraun), locator=ticker.LogLocator())
-fig = plt.gcf()
-fig.colorbar(cp, ax=ax, orientation="vertical")
+ax = plot2d(x2.squeeze(), y2.squeeze(), np.abs(u_out_fraun))
 ax.set_title("Fraunhofer diffraction pattern")
-ax.set_xlabel("x [m]")
-ax.set_ylabel("y [m]")
+ax.set_xlim([np.min(x2_fft_di), np.max(x2_fft_di)])
+ax.set_ylim([np.min(y2_fft_di), np.max(y2_fft_di)])
+
+ax = plot2d(x2_fft_di.squeeze(), y2_fft_di.squeeze(), np.abs(u_out_fft_di))
+ax.set_title("FFT-DI diffraction pattern")
 
 
 plt.show()
