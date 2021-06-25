@@ -577,44 +577,25 @@ def shifted_fresnel(u_in, wv, d1, dz, d2, out_shift=None):
     return fact_fresnel * fact_sdft * tmp, x_m, y_n
 
 
-def angular_spectrum(u_in, wv, delta, dz, bandlimit=True):
-    """
-    Band-Limited Angular Spectrum Method for Numerical Simulation of Free-Space Propagation in Far
-    and Near Fields (2009)
-
-    TODO : set data type
-    TODO : set output sampling
-    TODO : padding optional
-
-    Parameters
-    ----------
-    u_in : :py:class:`~numpy.ndarray`
-        Input amplitude distribution, [Ny, Nx].
-    wv : float
-        Wavelength [m].
-    delta : float
-        Input sampling period for both x-dimension and y-dimension (if different) [m].
-    dz : float
-        Propagation distance [m].
-    bandlimit : bool
-        Whether to bandlimit propagation in order to avoid aliasing, as proposed in "Band-Limited
-        Angular Spectrum Method for Numerical Simulation of Free-Space Propagation in Far and Near
-        Fields" (2009).
-    """
+def angular_spectrum_ffs(u_in, wv, d1, dz, d2):
     if isinstance(delta, float) or isinstance(delta, int):
         delta = [delta, delta]
     assert len(delta) == 2
 
     # zero pad to simulate linear convolution
     Ny, Nx = u_in.shape
+
+    # u_in_pad = np.zeros((2 * Ny - 1, 2 * Nx -1), dtype=u_in.dtype)
+    # u_in_pad[:Ny, :Nx] = u_in
+
     y_pad_edge = int(np.ceil(Ny / 2.0))
     x_pad_edge = int(np.ceil(Nx / 2.0))
     pad_width = ((y_pad_edge, y_pad_edge), (x_pad_edge, x_pad_edge))
     u_in_pad = np.pad(u_in, pad_width=pad_width, mode="constant", constant_values=0)
 
     # size of the field
-    Ny, Nx = u_in_pad.shape
-    Dy, Dx = (delta[1] * float(Ny), delta[0] * float(Nx))
+    Ny_pad, Nx_pad = u_in_pad.shape
+    Dy, Dx = (delta[1] * float(Ny_pad), delta[0] * float(Nx_pad))
 
     # frequency coordinates sampling, TODO check (commented is from neural holography)
     # neural holography is probably wrong if you compare with fftfreq
@@ -622,8 +603,8 @@ def angular_spectrum(u_in, wv, delta, dz, bandlimit=True):
     # fY = np.linspace(-1 / (2 * dy) + 0.5 / (2 * Dy), 1 / (2 * dy) - 0.5 / (2 * Dy), Ny)[:, np.newaxis]
     dfX = 1.0 / Dx
     dfY = 1.0 / Dy
-    fX = np.arange(-Nx / 2, Nx / 2)[:, np.newaxis].T * dfX
-    fY = np.arange(-Ny / 2, Ny / 2)[:, np.newaxis] * dfY
+    fX = np.arange(-Nx_pad / 2, Nx_pad / 2)[:, np.newaxis].T * dfX
+    fY = np.arange(-Ny_pad / 2, Ny_pad / 2)[:, np.newaxis] * dfY
     fsq = fX ** 2 + fY ** 2
 
     # compute transfer function (Saleh / Sepand's notes but w/o abs val on distance)
@@ -654,9 +635,99 @@ def angular_spectrum(u_in, wv, delta, dz, bandlimit=True):
 
     # remove padding
     u_out = u_out[pad_width[0][0] : -pad_width[0][0], pad_width[1][0] : -pad_width[1][1]]
+    # u_out = u_out[:Ny, :Nx]
 
     # coordinates
-    Ny, Nx = u_out.shape
+    x2, y2 = sample_points(N=[Nx, Ny], delta=delta)
+    # x2, y2 = np.meshgrid(np.arange(-Nx / 2, Nx / 2) * delta[0], np.arange(-Ny / 2, Ny / 2) * delta[1])
+
+    return u_out, x2, y2
+
+
+def angular_spectrum(u_in, wv, delta, dz, bandlimit=True):
+    """
+    Band-Limited Angular Spectrum Method for Numerical Simulation of Free-Space Propagation in Far
+    and Near Fields (2009)
+
+    TODO : set data type
+    TODO : set output sampling
+    TODO : padding optional
+
+    Parameters
+    ----------
+    u_in : :py:class:`~numpy.ndarray`
+        Input amplitude distribution, [Ny, Nx].
+    wv : float
+        Wavelength [m].
+    delta : float
+        Input sampling period for both x-dimension and y-dimension (if different) [m].
+    dz : float
+        Propagation distance [m].
+    bandlimit : bool
+        Whether to bandlimit propagation in order to avoid aliasing, as proposed in "Band-Limited
+        Angular Spectrum Method for Numerical Simulation of Free-Space Propagation in Far and Near
+        Fields" (2009).
+    """
+    if isinstance(delta, float) or isinstance(delta, int):
+        delta = [delta, delta]
+    assert len(delta) == 2
+
+    # zero pad to simulate linear convolution
+    Ny, Nx = u_in.shape
+
+    u_in_pad = np.zeros((2 * Ny, 2 * Nx), dtype=u_in.dtype)
+    u_in_pad[:Ny, :Nx] = u_in
+
+    # y_pad_edge = int(np.ceil(Ny / 2.0))
+    # x_pad_edge = int(np.ceil(Nx / 2.0))
+    # pad_width = ((y_pad_edge, y_pad_edge), (x_pad_edge, x_pad_edge))
+    # u_in_pad = np.pad(u_in, pad_width=pad_width, mode="constant", constant_values=0)
+
+    # size of the field
+    Ny_pad, Nx_pad = u_in_pad.shape
+    Dy, Dx = (delta[1] * float(Ny_pad), delta[0] * float(Nx_pad))
+
+    # frequency coordinates sampling, TODO check (commented is from neural holography)
+    # neural holography is probably wrong if you compare with fftfreq
+    # fX = np.linspace(-1 / (2 * dx) + 0.5 / (2 * Dx), 1 / (2 * dx) - 0.5 / (2 * Dx), Nx)[:, np.newaxis].T
+    # fY = np.linspace(-1 / (2 * dy) + 0.5 / (2 * Dy), 1 / (2 * dy) - 0.5 / (2 * Dy), Ny)[:, np.newaxis]
+    dfX = 1.0 / Dx
+    dfY = 1.0 / Dy
+    fX = np.arange(-Nx_pad / 2, Nx_pad / 2)[:, np.newaxis].T * dfX
+    fY = np.arange(-Ny_pad / 2, Ny_pad / 2)[:, np.newaxis] * dfY
+    fsq = fX ** 2 + fY ** 2
+
+    # compute transfer function (Saleh / Sepand's notes but w/o abs val on distance)
+    k = 2 * np.pi / wv
+    wv_sq = wv ** 2
+    H = np.zeros_like(u_in_pad).astype(complex)
+    prop_waves = fsq <= 1 / wv_sq
+    evanescent_waves = np.logical_not(prop_waves)
+    H[prop_waves] = np.exp(1j * k * dz * np.sqrt(1 - wv_sq * fsq[prop_waves]))
+    H[evanescent_waves] = np.exp(
+        -k * dz * np.sqrt(wv_sq * fsq[evanescent_waves] - 1)
+    )  # evanescent waves
+
+    # band-limited to avoid aliasing - Eq 13 and 20 of Matsushima et al. (2009)
+    if bandlimit:
+        fx_max = 1 / np.sqrt((2 * dz * (1 / Dx)) ** 2 + 1) / wv
+        fy_max = 1 / np.sqrt((2 * dz * (1 / Dy)) ** 2 + 1) / wv
+        H_filter = (np.abs(fX) <= fx_max) * (np.abs(fY) < fy_max)
+        H *= H_filter
+
+    # perform convolution, TODO : bad FFT shifting in neural holography code?
+    # U1 = np.fft.fftn(np.fft.ifftshift(Uin_pad), axes=(-2, -1), norm='ortho')
+    U1 = ft2(u_in_pad, delta=delta)
+    U2 = H * U1
+
+    # Uout = np.fft.fftshift(np.fft.ifftn(U2, axes=(-2, -1), norm='ortho'))
+    u_out = ift2(U2, delta_f=[dfX, dfY])
+
+    # remove padding
+    # u_out = u_out[pad_width[0][0] : -pad_width[0][0], pad_width[1][0] : -pad_width[1][1]]
+    u_out = u_out[:Ny, :Nx]
+
+    # coordinates
     x2, y2 = sample_points(N=[Nx, Ny], delta=delta)
     # x2, y2 = np.meshgrid(np.arange(-Nx / 2, Nx / 2) * delta[0], np.arange(-Ny / 2, Ny / 2) * delta[1])
 
