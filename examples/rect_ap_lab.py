@@ -9,12 +9,13 @@ import matplotlib.pyplot as plt
 from matplotlib import ticker
 import click
 
-from waveprop.util import rect2d, sample_points
+from waveprop.util import rect2d, sample_points, plot2d
 from waveprop.prop import (
     fraunhofer_prop_rect_ap,
     fresnel_prop_square_ap,
     direct_integration,
     angular_spectrum,
+    angular_spectrum_ffs,
 )
 from waveprop.condition import (
     fraunhofer_schmidt,
@@ -76,6 +77,16 @@ def prop(dz, wid, r_out, n_grid, grid_len, wv, di):
     """ Angular spectrum """
     u_out_asm_bl, x_asm, y_asm = angular_spectrum(u_in=u_in, wv=wv, delta=d1, dz=dz, bandlimit=True)
 
+    """ Angular spectrum with FS coefficients """
+    N_out = n_grid
+    d2 = d1 / 2
+    out_shift = d2 * N_out / 2
+    # d2 = d1
+    # out_shift = 0
+    u_out_ffs, x2_ffs, y2_ffs = angular_spectrum_ffs(
+        u_in, wv, d1, dz, N_out=N_out, d2=d2, out_shift=out_shift
+    )
+
     """ Direct integration (ground truth) """
     if di:
         u_out_di = direct_integration(u_in, wv, d1, dz, x=x2[0], y=[0])
@@ -116,38 +127,32 @@ def prop(dz, wid, r_out, n_grid, grid_len, wv, di):
     plt.xlim([0, r_out * 1e3])
 
     # plot input
-    X1, Y1 = np.meshgrid(x1, y1)
-    fig = plt.figure()
-    ax = fig.add_subplot(1, 1, 1)
-    cp = ax.contourf(X1, Y1, u_in)
-    fig = plt.gcf()
-    fig.colorbar(cp, ax=ax, orientation="vertical")
-    ax.set_xlabel("x [m]")
-    ax.set_ylabel("y [m]")
+    ax = plot2d(x1.squeeze(), y1.squeeze(), u_in)
+    ax.set_title("Aperture")
 
     # plot output
-    X2, Y2 = np.meshgrid(x2, y2)
-    fig = plt.figure()
-    ax = fig.add_subplot(1, 1, 1)
-    cp = ax.contourf(X2, Y2, np.abs(u_out_fraun), locator=ticker.LogLocator())
-    fig = plt.gcf()
-    fig.colorbar(cp, ax=ax, orientation="vertical")
-    ax.set_xlabel("x [m]")
-    ax.set_ylabel("y [m]")
+    ax = plot2d(x2.squeeze(), y2.squeeze(), np.abs(u_out_fraun))
     ax.set_title("Fraunhofer (theoretical)")
     # ax.set_xlim([-xlim, xlim])
     # ax.set_ylim([-ylim, ylim])
 
-    fig = plt.figure()
-    ax = fig.add_subplot(1, 1, 1)
-    cp = ax.contourf(X2, Y2, np.abs(u_out_th_fres), locator=ticker.LogLocator())
-    fig = plt.gcf()
-    fig.colorbar(cp, ax=ax, orientation="vertical")
-    ax.set_xlabel("x [m]")
-    ax.set_ylabel("y [m]")
+    ax = plot2d(x2.squeeze(), y2.squeeze(), np.abs(u_out_th_fres))
     ax.set_title("Fresnel (theoretical)")
     # ax.set_xlim([-xlim, xlim])
     # ax.set_ylim([-ylim, ylim])
+
+    ax = plot2d(x_asm.squeeze(), y_asm.squeeze(), np.abs(u_out_asm_bl))
+    ax.set_title("Angular spectrum")
+    ax.set_xlim([np.min(x2_ffs), np.max(x2_ffs)])
+    ax.set_ylim([np.min(y2_ffs), np.max(y2_ffs)])
+
+    ax = plot2d(x2_ffs.squeeze(), y2_ffs.squeeze(), np.abs(u_out_ffs))
+    ax.set_title("Angular spectrum (FFS)")
+
+    ax = plot2d(x2.squeeze(), y2.squeeze(), np.abs(u_out_th_fres))
+    ax.set_title("Fresnel (theoretical)")
+    ax.set_xlim([np.min(x2_ffs), np.max(x2_ffs)])
+    ax.set_ylim([np.min(y2_ffs), np.max(y2_ffs)])
 
     plt.show()
 

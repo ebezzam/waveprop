@@ -18,5 +18,10 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     python_requires=">=3.6",
-    install_requires=["numpy==1.19.5", "matplotlib==3.3.4", "scipy==1.5.4"],
+    install_requires=[
+        "numpy==1.19.5",
+        "matplotlib==3.3.4",
+        "scipy==1.5.4",
+        "git+https://github.com/ebezzam/pyFFS.git@task/add_examples#egg=pyFFS",
+    ],
 )

@@ -1,5 +1,6 @@
 import numpy as np
 from waveprop.util import ft2, ift2, jinc, sample_points
+from pyffs import ffsn_sample, ffsn, fs_interpn, ffsn_shift
 from scipy.special import fresnel
 
 
@@ -471,7 +472,7 @@ def fft_di(u_in, wv, d1, dz, N_out=None, use_simpson=True):
     return S[-Ny_out:, -Nx_out:], x2, y2
 
 
-def shifted_fresnel(u_in, wv, d1, dz, d2, out_shift=None):
+def shifted_fresnel(u_in, wv, d1, dz, d2, out_shift=0):
     """
     "Shifted Fresnel diffraction for computational holography." (2007)
 
@@ -577,69 +578,95 @@ def shifted_fresnel(u_in, wv, d1, dz, d2, out_shift=None):
     return fact_fresnel * fact_sdft * tmp, x_m, y_n
 
 
-def angular_spectrum_ffs(u_in, wv, d1, dz, d2):
-    if isinstance(delta, float) or isinstance(delta, int):
-        delta = [delta, delta]
-    assert len(delta) == 2
+def angular_spectrum_ffs(u_in, wv, d1, dz, d2=None, N_out=None, out_shift=0):
+    """
+    Can control output sampling like shifted Fresnel, but maybe only within period?
 
-    # zero pad to simulate linear convolution
+    Exactness of Angular spectrum.
+
+    With Fresnel could go output of input region. Here limited by input region?
+    """
+
+    if isinstance(d1, float) or isinstance(d1, int):
+        d1 = [d1, d1]
+    assert len(d1) == 2
+    if d2 is None:
+        d2 = d1
+    if isinstance(d2, float) or isinstance(d2, int):
+        d2 = [d2, d2]
+    assert len(d2) == 2
     Ny, Nx = u_in.shape
+    if N_out is None:
+        N_out = [Nx, Ny]
+    if isinstance(N_out, int):
+        N_out = [N_out, N_out]
+    assert len(N_out) == 2
 
-    # u_in_pad = np.zeros((2 * Ny - 1, 2 * Nx -1), dtype=u_in.dtype)
-    # u_in_pad[:Ny, :Nx] = u_in
+    # output coordinates
+    x2, y2 = sample_points(N=N_out, delta=d2, shift=out_shift)
 
-    y_pad_edge = int(np.ceil(Ny / 2.0))
-    x_pad_edge = int(np.ceil(Nx / 2.0))
-    pad_width = ((y_pad_edge, y_pad_edge), (x_pad_edge, x_pad_edge))
+    # determine necessary padding
+    x_out_max = np.max(x2)
+    y_out_max = np.max(y2)
+    x_out_min = np.min(x2)
+    y_out_min = np.min(y2)
+
+    # padding_x = max(int(np.ceil(x_out_max * 2 / d1[0])) - Nx, Nx)
+    # padding_y = max(int(np.ceil(y_out_max * 2 / d1[1])) - Ny, Ny)
+    # x_pad_edge = int(np.ceil(padding_x / 2.0))
+    # y_pad_edge = int(np.ceil(padding_y / 2.0))
+    # pad_width = ((y_pad_edge, y_pad_edge), (x_pad_edge, x_pad_edge))
+
+    x_pad_neg = int(np.ceil(max(x_out_min / d1[0] - Nx / 2, Nx / 2)))
+    x_pad_pos = int(np.ceil(max(x_out_max / d1[0] - Nx / 2, Nx / 2)))
+    y_pad_neg = int(np.ceil(max(y_out_min / d1[1] - Ny / 2, Ny / 2)))
+    y_pad_pos = int(np.ceil(max(y_out_max / d1[1] - Ny / 2, Ny / 2)))
+    pad_width = ((y_pad_neg, y_pad_pos), (x_pad_neg, x_pad_pos))
+
+    #
+    # import pudb; pudb.set_trace()
+
     u_in_pad = np.pad(u_in, pad_width=pad_width, mode="constant", constant_values=0)
 
     # size of the field
     Ny_pad, Nx_pad = u_in_pad.shape
-    Dy, Dx = (delta[1] * float(Ny_pad), delta[0] * float(Nx_pad))
+    Dy, Dx = (d1[1] * float(Ny_pad), d1[0] * float(Nx_pad))
 
-    # frequency coordinates sampling, TODO check (commented is from neural holography)
-    # neural holography is probably wrong if you compare with fftfreq
-    # fX = np.linspace(-1 / (2 * dx) + 0.5 / (2 * Dx), 1 / (2 * dx) - 0.5 / (2 * Dx), Nx)[:, np.newaxis].T
-    # fY = np.linspace(-1 / (2 * dy) + 0.5 / (2 * Dy), 1 / (2 * dy) - 0.5 / (2 * Dy), Ny)[:, np.newaxis]
-    dfX = 1.0 / Dx
-    dfY = 1.0 / Dy
-    fX = np.arange(-Nx_pad / 2, Nx_pad / 2)[:, np.newaxis].T * dfX
-    fY = np.arange(-Ny_pad / 2, Ny_pad / 2)[:, np.newaxis] * dfY
+    # compute FS coefficients of input
+    # -- reshuffle input for pyFFS
+    T = [Dx, Dy]
+    T_c = [0, 0]
+    N_s = np.array(u_in_pad.shape)
+    N_FS = N_s // 2 * 2 - 1  # must be odd
+    samp_loc, idx = ffsn_sample(T, N_FS, T_c, N_s)
+    u_in_pad_reorder = ffsn_shift(u_in_pad, idx)
+    # -- compute coefficients
+    U = ffsn(u_in_pad_reorder, T, T_c, N_FS)[: N_FS[1], : N_FS[0]]
+
+    # compute truncated FS coefficients of response
+    # -- get corresponding frequencies
+    fX = np.arange(-N_FS[0] / 2, N_FS[0] / 2)[np.newaxis, :] / T[0]
+    fY = np.arange(-N_FS[1] / 2, N_FS[1] / 2)[:, np.newaxis] / T[1]
     fsq = fX ** 2 + fY ** 2
-
-    # compute transfer function (Saleh / Sepand's notes but w/o abs val on distance)
+    # -- compute response
     k = 2 * np.pi / wv
     wv_sq = wv ** 2
-    H = np.zeros_like(u_in_pad).astype(complex)
+    H = np.zeros_like(U).astype(complex)
     prop_waves = fsq <= 1 / wv_sq
     evanescent_waves = np.logical_not(prop_waves)
     H[prop_waves] = np.exp(1j * k * dz * np.sqrt(1 - wv_sq * fsq[prop_waves]))
-    H[evanescent_waves] = np.exp(
-        -k * dz * np.sqrt(wv_sq * fsq[evanescent_waves] - 1)
-    )  # evanescent waves
+    H[evanescent_waves] = np.exp(-k * dz * np.sqrt(wv_sq * fsq[evanescent_waves] - 1))
+    # -- bandlimit to avoid aliasing
+    fx_max = 1 / np.sqrt((2 * dz * (1 / Dx)) ** 2 + 1) / wv
+    fy_max = 1 / np.sqrt((2 * dz * (1 / Dy)) ** 2 + 1) / wv
+    H_filter = (np.abs(fX) <= fx_max) * (np.abs(fY) < fy_max)
+    H *= H_filter
 
-    # band-limited to avoid aliasing - Eq 13 and 20 of Matsushima et al. (2009)
-    if bandlimit:
-        fx_max = 1 / np.sqrt((2 * dz * (1 / Dx)) ** 2 + 1) / wv
-        fy_max = 1 / np.sqrt((2 * dz * (1 / Dy)) ** 2 + 1) / wv
-        H_filter = (np.abs(fX) <= fx_max) * (np.abs(fY) < fy_max)
-        H *= H_filter
-
-    # perform convolution, TODO : bad FFT shifting in neural holography code?
-    # U1 = np.fft.fftn(np.fft.ifftshift(Uin_pad), axes=(-2, -1), norm='ortho')
-    U1 = ft2(u_in_pad, delta=delta)
-    U2 = H * U1
-
-    # Uout = np.fft.fftshift(np.fft.ifftn(U2, axes=(-2, -1), norm='ortho'))
-    u_out = ift2(U2, delta_f=[dfX, dfY])
-
-    # remove padding
-    u_out = u_out[pad_width[0][0] : -pad_width[0][0], pad_width[1][0] : -pad_width[1][1]]
-    # u_out = u_out[:Ny, :Nx]
-
-    # coordinates
-    x2, y2 = sample_points(N=[Nx, Ny], delta=delta)
-    # x2, y2 = np.meshgrid(np.arange(-Nx / 2, Nx / 2) * delta[0], np.arange(-Ny / 2, Ny / 2) * delta[1])
+    # use output FS coefficients to interpolate
+    output_FS = U * H
+    a = [np.min(x2), np.min(y2)]
+    b = [np.max(x2), np.max(y2)]
+    u_out = fs_interpn(x_FS=output_FS, T=T, a=a, b=b, M=N_out)
 
     return u_out, x2, y2
 
@@ -693,7 +720,7 @@ def angular_spectrum(u_in, wv, delta, dz, bandlimit=True):
     # fY = np.linspace(-1 / (2 * dy) + 0.5 / (2 * Dy), 1 / (2 * dy) - 0.5 / (2 * Dy), Ny)[:, np.newaxis]
     dfX = 1.0 / Dx
     dfY = 1.0 / Dy
-    fX = np.arange(-Nx_pad / 2, Nx_pad / 2)[:, np.newaxis].T * dfX
+    fX = np.arange(-Nx_pad / 2, Nx_pad / 2)[np.newaxis, :] * dfX
     fY = np.arange(-Ny_pad / 2, Ny_pad / 2)[:, np.newaxis] * dfY
     fsq = fX ** 2 + fY ** 2
 
