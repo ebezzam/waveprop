@@ -44,16 +44,18 @@ def ift2(G, delta_f):
     return ifftshift(ifft2(ifftshift(G))) * G.shape[0] * G.shape[1] * delta_f[0] * delta_f[1]
 
 
-def sample_points(N, delta):
+def sample_points(N, delta, shift=0):
     """
     Return sample points in 2D.
 
     Parameters
     ----------
-    N : int or float or list
+    N : int or list
         Number of sample points
     delta: int or float or list
         Sampling period along x-dimension and (optionally) y-dimension [m].
+    shift : int or float or list
+        Shift from optical axis
     """
     if isinstance(N, int):
         N = [N, N]
@@ -61,8 +63,11 @@ def sample_points(N, delta):
     if isinstance(delta, float) or isinstance(delta, int):
         delta = [delta, delta]
     assert len(delta) == 2
-    x = np.arange(-N[0] / 2, N[0] / 2)[np.newaxis, :] * delta[0]
-    y = np.arange(-N[1] / 2, N[1] / 2)[:, np.newaxis] * delta[1]
+    if isinstance(shift, float) or isinstance(shift, int):
+        shift = [shift, shift]
+    assert len(shift) == 2
+    x = np.arange(-N[0] / 2, N[0] / 2)[np.newaxis, :] * delta[0] + shift[0]
+    y = np.arange(-N[1] / 2, N[1] / 2)[:, np.newaxis] * delta[1] + shift[1]
     return x, y
 
 

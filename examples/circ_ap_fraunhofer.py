@@ -25,6 +25,7 @@ from waveprop.prop import (
     fraunhofer_prop_circ_ap,
     fresnel_one_step,
     fft_di,
+    shifted_fresnel,
     direct_integration,
 )
 from waveprop.condition import fraunhofer_schmidt, fraunhofer_goodman, fraunhofer_saleh
@@ -36,6 +37,11 @@ diam = 1e-3  # diameter of aperture [m]
 wv = 1e-6  # wavelength
 dz = 20  # distance [m]
 d1 = L / N  # source-plane grid spacing
+
+# shift fresnel parameters
+output_scaling = 15
+# out_shift = 0
+out_shift = output_scaling * d1 * N / 2
 
 # plot param
 xlim = 0.1
@@ -63,9 +69,17 @@ fraunhofer_saleh(wv, dz, x1, y1, x2, y2)
 u_out_fres, x2_fres, y2_fres = fresnel_one_step(u_in, wv, d1, dz)
 
 
-""" FFT direct integration"""
-# x2_fft_di, y2_fft_di = sample_points(N=N * 8, delta=d1)
-u_out_fft_di, x2_fft_di, y2_fft_di = fft_di(u_in, wv, d1, dz, N_out=N * 8, use_simpson=True)
+""" Shifted Fresnel """
+u_out_sfres, x2_sfres, y2_sfres = shifted_fresnel(
+    u_in, wv, d1, dz, d2=output_scaling * d1, out_shift=out_shift
+)
+u_out_sfres /= np.max(np.abs(u_out_sfres))
+u_out_sfres *= np.max(np.abs(u_out_fres))
+
+
+# """ FFT direct integration"""
+# # x2_fft_di, y2_fft_di = sample_points(N=N * 8, delta=d1)
+# u_out_fft_di, x2_fft_di, y2_fft_di = fft_di(u_in, wv, d1, dz, N_out=N * 8, use_simpson=True)
 
 # """ Direct integration (ground truth) """
 # u_out_di = direct_integration(u_in, wv, d1, dz, x=x2[0], y=[0])
@@ -73,7 +87,8 @@ u_out_fft_di, x2_fft_di, y2_fft_di = fft_di(u_in, wv, d1, dz, N_out=N * 8, use_s
 """ Plot """
 # plot y2 = 0 cross-section
 idx = y2[:, 0] == 0
-idx_fft_di = y2_fft_di[:, 0] == 0
+# idx_fft_di = y2_fft_di[:, 0] == 0
+idx_sf = y2_sfres[:, 0] == 0
 plt.figure()
 plt.plot(
     x2[0], np.abs(u_out_fraun[:, idx]), marker="o", label="fraunhofer (numerical)", alpha=ALPHA
@@ -82,7 +97,8 @@ plt.plot(
     x2[0], np.abs(u_out_fraun_th[:, idx]), marker="x", label="fraunhofer (theoretical)", alpha=ALPHA
 )
 plt.plot(x2_fres[0], np.abs(u_out_fres[:, idx]), label="fresnel (numerical)")
-plt.plot(x2_fft_di[0], np.abs(u_out_fft_di[:, idx_fft_di]), marker="*", label="FFT-DI", alpha=ALPHA)
+plt.plot(x2_sfres[0], np.abs(u_out_sfres[:, idx_sf]), label="shifted fresnel")
+# plt.plot(x2_fft_di[0], np.abs(u_out_fft_di[:, idx_fft_di]), marker="*", label="FFT-DI", alpha=ALPHA)
 # plt.plot(x2[0], np.abs(u_out_di[0]), marker="*", label="direct integration", alpha=ALPHA)
 plt.xlabel("x[m]")
 plt.title("amplitude, y = 0")
@@ -99,11 +115,17 @@ ax.set_title("Aperture")
 # plot outputs
 ax = plot2d(x2.squeeze(), y2.squeeze(), np.abs(u_out_fraun))
 ax.set_title("Fraunhofer diffraction pattern")
-ax.set_xlim([np.min(x2_fft_di), np.max(x2_fft_di)])
-ax.set_ylim([np.min(y2_fft_di), np.max(y2_fft_di)])
+# ax.set_xlim([np.min(x2_sfres) - np.max(x2_sfres), 0])
+ax.set_xlim([np.min(x2_sfres), np.max(x2_sfres)])
+ax.set_ylim([np.min(y2_sfres), np.max(y2_sfres)])
+# ax.set_xlim([np.min(x2_fft_di), np.max(x2_fft_di)])
+# ax.set_ylim([np.min(y2_fft_di), np.max(y2_fft_di)])
 
-ax = plot2d(x2_fft_di.squeeze(), y2_fft_di.squeeze(), np.abs(u_out_fft_di))
-ax.set_title("FFT-DI diffraction pattern")
+# ax = plot2d(x2_fft_di.squeeze(), y2_fft_di.squeeze(), np.abs(u_out_fft_di))
+# ax.set_title("FFT-DI diffraction pattern")
+
+ax = plot2d(x2_sfres.squeeze(), y2_sfres.squeeze(), np.abs(u_out_sfres))
+ax.set_title("Shifted Fresnel diffraction pattern")
 
 
 plt.show()

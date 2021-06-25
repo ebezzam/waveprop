@@ -13,9 +13,12 @@ NB: `click` is required for some of the scripts for parsing command-line argumen
 
 Following propagation models are implemented. All make use of FFT unless otherwise noted.
 - Fraunhofer.
-- Fresnel (one-step, two-step, angular spectrum).
+- Fresnel (one-step, two-step, multi-step, angular spectrum).
 - Angular spectrum, with evanescent waves and option to bandlimit.
-- Direct integration, "brute force" numerical integration.
+- Direct integration (no FFT), "brute force" numerical integration.
+- FFT-DI, linearizes circular convolution of direction integration in DFT domain.
+- Shifted Fresnel, uses three-FFT to model propagation off of optical axis with arbitrary input and
+output sampling.
 
 ## Local install
 
@@ -46,7 +49,8 @@ A description of the Direct Integration (DI) method and its FFT version can be f
 formula" (2006)](https://www.osapublishing.org/ao/fulltext.cfm?uri=ao-45-6-1102&id=87971). This 
 serves as a good baseline as it is an approximation of the Rayleigh-Sommerfeld diffraction integral 
 via a Riemann sum (Eq 9). Main drawbacks are computational load, as DI directly performs the 
-discrete convolution and FFT-DI requires three FFTs.
+discrete convolution and FFT-DI requires three FFTs. Moreover, FFT-DI is only practical for small
+output windows.
 
 The angular spectrum (AS) approach is another well-known formulation that is directly derived from 
 the Rayleigh-Sommerfeld equation. However, it tends to have issues outside of the scenarios of
@@ -57,13 +61,17 @@ implementation of this approach has been largely replicated from [the code](http
 of ["Neural holography with camera-in-the-loop training"](https://dl.acm.org/doi/abs/10.1145/3414685.3417802). 
 Their index-to-frequency mapping and FFT shifting seemed to be off, and they did not include evanescent waves; both of which were modified for the implementation found here.
 
+Shifted Fresnel allows for the simulation off of the optical-axis and for arbitrary input and output
+sampling. A description of this approach can be found in ["Shifted Fresnel diffraction for 
+computational holography"](https://www.osapublishing.org/oe/fulltext.cfm?uri=oe-15-9-5631&id=132698).
+
 ## TODO
 
 Propagation models:
-- FFT-DI, "Fast-Fourier-transform based numerical integration method for the Rayleigh–Sommerfeld diffraction 
-formula".
 - Interpolation of angular spectrum with FS coefficients (ours).
-- Shifted Fresnel method, "Shifted Fresnel diffraction for computational holography".
+- Rectangular tiling, Section 4 of "Shifted Fresnel diffraction for computational holography".
+- Circ aperture and single slit exp from "Fast-Fourier-transform based numerical integration
+method for the Rayleigh–Sommerfeld diffraction formula"
 
 Examples:
 - For single slit, something terribly wrong. Compare with following results:
@@ -72,9 +80,11 @@ Examples:
     - https://www.osapublishing.org/josa/fulltext.cfm?uri=josa-59-3-293&id=53644
 - Double slit
 
-Analytic forms of:
+Analytic forms of (see Born book):
 - Fresnel circular aperture
 - Fresnel rectangular aperture
+- Circular aperture from "Fast-Fourier-transform based numerical integration
+method for the Rayleigh–Sommerfeld diffraction formula", Eq 36
 
 Compare / mention complexity of different approaches
 
@@ -82,7 +92,9 @@ Compare / mention complexity of different approaches
 
 - Diffractio: https://diffractio.readthedocs.io/en/latest/readme.html
     - Cite "Applied Optics" vol 45 num 6 pp. 1102-1110 (2006) for Rayleigh Sommerfeld propagation.
-- LightPiptes: https://opticspy.github.io/lightpipes/manual.html#free-space-propagation
+- LightPipes: https://opticspy.github.io/lightpipes/manual.html#free-space-propagation
 - AOtools: https://aotools.readthedocs.io/en/v1.0.1/opticalpropagation.html
     - Ported scripts from "Numerical Simulation of Optical Wave Propagation with Examples in MATLAB".
 - PyOptica: https://gitlab.com/pyoptica/pyoptica
+    - Free-space propagation: https://gitlab.com/pyoptica/pyoptica/-/blob/master/pyoptica/optical_elements/free_space.py
+    - Gerschberg-Saxton: https://gitlab.com/pyoptica/pyoptica/-/blob/master/notebooks/gerchberg_saxton.ipynb

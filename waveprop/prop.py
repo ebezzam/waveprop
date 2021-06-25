@@ -374,9 +374,7 @@ def direct_integration(u_in, wv, d1, dz, x, y):
 
 def fft_di(u_in, wv, d1, dz, N_out=None, use_simpson=True):
     """
-
-    Simpson can only be used if u_in has odd dimensions, for even fall back on trapezoidal: https://www.intmath.com/integration/5-trapezoidal-rule.php
-    - https://en.wikipedia.org/wiki/Simpson%27s_rule
+    Enforces same resolution between input and output.
 
     Parameters
     ----------
@@ -406,13 +404,13 @@ def fft_di(u_in, wv, d1, dz, N_out=None, use_simpson=True):
         N_out = [N_out, N_out]
     assert len(N_out) == 2
 
+    Ny, Nx = u_in.shape
     k = 2 * np.pi / wv
 
     # output coordinates
     x2, y2 = sample_points(N=N_out, delta=d1)
 
     # source coordinates
-    Ny, Nx = u_in.shape
     x1, y1 = sample_points(N=[Nx, Ny], delta=d1)
 
     # zero-pad
@@ -471,6 +469,112 @@ def fft_di(u_in, wv, d1, dz, N_out=None, use_simpson=True):
 
     # lower right submatrix
     return S[-Ny_out:, -Nx_out:], x2, y2
+
+
+def shifted_fresnel(u_in, wv, d1, dz, d2, out_shift=None):
+    """
+    "Shifted Fresnel diffraction for computational holography." (2007)
+
+    https://www.davidhbailey.com/dhbpapers/fracfft.pdf
+
+    Control over output spacing and shift from axis of propagation.
+
+    Section 3.
+
+    TODO : check different Nx, Ny
+    TODO : fix/check scaling
+
+    Limitation
+    - Number of discrete element in target image must be equal to number of discrete elements in source image.
+
+    Parameters
+    ----------
+    u_in : array_like
+        Input amplitude distribution, [Ny, Nx].
+    wv : float
+        Wavelength [m].
+    d1 : float or list or tuple
+        Input sampling period for both x-dimension and y-dimension [m]. Scalar if the same for both
+        dimensions.
+    dz : float
+        Propagation distance [m].
+    d2 : float or list or tuple
+        Input sampling period for both x-dimension and y-dimension [m]. Scalar if the same for both
+        dimensions.
+    out_shift : array_like
+        Shift from optical axis at output.
+
+    """
+    if isinstance(d1, float) or isinstance(d1, int):
+        d1 = [d1, d1]
+    if isinstance(d2, float) or isinstance(d2, int):
+        d2 = [d2, d2]
+
+    Ny, Nx = u_in.shape
+    k = 2 * np.pi / wv
+
+    # output coordinates, same number as input
+    x_m, y_n = sample_points(N=[Nx, Ny], delta=d2, shift=out_shift)
+    m = np.arange(Nx)[np.newaxis, :]
+    n = np.arange(Ny)[:, np.newaxis]
+    x0 = np.min(x_m)
+    y0 = np.min(y_n)
+
+    # source coordinates
+    Ny, Nx = u_in.shape
+    x_p, y_q = sample_points(N=[Nx, Ny], delta=d1)
+    p = np.arange(Nx)[np.newaxis, :]
+    q = np.arange(Ny)[:, np.newaxis]
+    x0_in = np.min(x_p)
+    y0_in = np.min(y_q)
+
+    # constants in front of sum in Eq 13
+    fact_fresnel = (
+        np.exp(1j * k * dz)
+        / (1j * wv * dz)
+        * np.exp(1j * np.pi * (x_m ** 2 + y_n ** 2) / wv / dz)
+        * np.exp(-1j * 2 * np.pi * (x0_in * m * d2[0] + y0_in * n * d2[1]) / wv / dz)
+    )
+
+    # modulated input, second line of Eq 13
+    h = (
+        u_in
+        * np.exp(1j * np.pi * (x_p ** 2 + y_q ** 2) / wv / dz)
+        * np.exp(-1j * 2 * np.pi * (x_p * x0 + y_q * y0) / wv / dz)
+    )
+
+    # scaled Discrete Fourier transform (e.g. fractional FT), Eq 15 but for 2D
+    s = d1[0] * d2[0] / wv / dz
+    t = d1[1] * d2[1] / wv / dz
+    fact_sdft = np.exp(-1j * np.pi * s * m ** 2) * np.exp(-1j * np.pi * t * n ** 2)
+    # -- Eq 16, Eq 13 of Bailey
+    f = h * np.exp(-1j * np.pi * s * p ** 2) * np.exp(-1j * np.pi * t * q ** 2)
+    # -- Eq 17, Eq 14 of Bailey
+    g = np.exp(1j * np.pi * s * p ** 2) * np.exp(1j * np.pi * t * q ** 2)
+
+    # -- pad sequences along x-dimension, Eq 15-16 of Bailey
+    pad_size = (2 * Ny - 1, 2 * Nx - 1)
+    f_pad = np.zeros(pad_size, dtype=f.dtype)
+    f_pad[:Ny, :Nx] = f
+    g_pad = np.zeros(pad_size, dtype=g.dtype)
+    g_pad[:Ny, :Nx] = g
+    p_pad = np.arange(pad_size[1] - Nx, pad_size[1])[np.newaxis, :]
+    g_pad[:Ny, pad_size[1] - Nx :] = np.exp(1j * np.pi * s * (p_pad - pad_size[1]) ** 2) * np.exp(
+        1j * np.pi * t * q ** 2
+    )
+    q_pad = np.arange(pad_size[0] - Ny, pad_size[0])[:, np.newaxis]
+    g_pad[pad_size[0] - Ny :, :Nx] = np.exp(1j * np.pi * s * p ** 2) * np.exp(
+        1j * np.pi * t * (q_pad - pad_size[0]) ** 2
+    )
+    g_pad[pad_size[0] - Ny :, pad_size[1] - Nx :] = np.exp(
+        1j * np.pi * s * (p_pad - pad_size[1]) ** 2
+    ) * np.exp(1j * np.pi * t * (q_pad - pad_size[0]) ** 2)
+
+    # fractional FT
+    tmp = (
+        np.fft.ifft2(np.fft.fft2(f_pad) * np.fft.fft2(g_pad))[:Ny, :Nx] / pad_size[0] / pad_size[1]
+    )
+    return fact_fresnel * fact_sdft * tmp, x_m, y_n
 
 
 def angular_spectrum(u_in, wv, delta, dz, bandlimit=True):

@@ -35,7 +35,8 @@ from waveprop.condition import (
 @click.option("--n_grid", type=int, default=512)  # number of grid points per side
 @click.option("--grid_len", type=float, default=1e-2)  # length of grid per side
 @click.option("--wv", type=float, default=635e-9)  # wavelength [m]
-def prop(dz, r_in, r_out, n_grid, grid_len, wv):
+@click.option("--di", is_flag=True, help="Whether to compare with direct integration.")
+def prop(dz, r_in, r_out, n_grid, grid_len, wv, di):
 
     d1 = grid_len / n_grid  # source-plane grid spacing
     diam = 2 * r_in
@@ -75,7 +76,8 @@ def prop(dz, r_in, r_out, n_grid, grid_len, wv):
     u_out_asm_bl, x_asm, y_asm = angular_spectrum(u_in=u_in, wv=wv, delta=d1, dz=dz, bandlimit=True)
 
     """ Direct integration (ground truth) """
-    u_out_di = direct_integration(u_in, wv, d1, dz, x=x2[0], y=[0])
+    if di:
+        u_out_di = direct_integration(u_in, wv, d1, dz, x=x2[0], y=[0])
 
     """ Plot """
     r_out_fraun = fraunhofer_valid_output_region(wv, dz, tol=1) * 1e3
@@ -100,7 +102,8 @@ def prop(dz, r_in, r_out, n_grid, grid_len, wv):
         linestyle="dashed",
     )
     plt.plot(x2_fres[0] * 1e3, np.abs(u_out_fres[:, idx]), color="blue", label="fresnel (two step)")
-    plt.plot(x2[0] * 1e3, np.abs(u_out_di[0]), color="red", label="direct integration")
+    if di:
+        plt.plot(x2[0] * 1e3, np.abs(u_out_di[0]), color="red", label="direct integration")
     plt.plot(x_asm[0] * 1e3, np.abs(u_out_asm_bl[:, idx]), color="orange", label="angular spectrum")
     plt.xlabel("x [mm]")
     plt.legend()
