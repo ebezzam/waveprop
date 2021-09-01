@@ -11,7 +11,7 @@ in MATLAB" (2010).
 import numpy as np
 import matplotlib.pyplot as plt
 
-from waveprop.util import rect2d, sample_points
+from waveprop.util import rect2d, sample_points, plot2d
 from waveprop.prop import (
     fraunhofer_prop_rect_ap,
     fresnel_one_step,
@@ -130,65 +130,20 @@ else:
 plt.xlim([-xlim, xlim])
 
 # plot input
-X1, Y1 = np.meshgrid(x1, y1)
-fig = plt.figure()
-ax = fig.add_subplot(1, 1, 1)
-cp = ax.contourf(X1, Y1, u_in)
-fig = plt.gcf()
-fig.colorbar(cp, ax=ax, orientation="vertical")
-ax.set_xlabel("x [m]")
-ax.set_ylabel("y [m]")
-ax.set_title("Aperture")
+plot2d(x1.squeeze(), y1.squeeze(), u_in, title="Aperture")
 
 # plot output
 xlim = np.max(x_asm)
 ylim = np.max(y_asm)
-X2, Y2 = np.meshgrid(x2, y2)
-fig = plt.figure()
-ax = fig.add_subplot(1, 1, 1)
-cp = ax.contourf(X2, Y2, np.abs(u_out_fraun))
-fig = plt.gcf()
-fig.colorbar(cp, ax=ax, orientation="vertical")
-ax.set_xlabel("x [m]")
-ax.set_ylabel("y [m]")
-ax.set_title("Fraunhofer (theoretical)")
+ax = plot2d(x2.squeeze(), y2.squeeze(), np.abs(u_out_fraun), title="Fraunhofer (theoretical)")
 ax.set_xlim([-xlim, xlim])
 ax.set_ylim([-ylim, ylim])
-
-fig = plt.figure()
-ax = fig.add_subplot(1, 1, 1)
-cp = ax.contourf(X2, Y2, np.abs(u_out_th_fres))
-fig = plt.gcf()
-fig.colorbar(cp, ax=ax, orientation="vertical")
-ax.set_xlabel("x [m]")
-ax.set_ylabel("y [m]")
-ax.set_title("Fresnel (theoretical)")
+ax = plot2d(x2.squeeze(), y2.squeeze(), np.abs(u_out_th_fres), title="Fresnel (theoretical)")
 ax.set_xlim([-xlim, xlim])
 ax.set_ylim([-ylim, ylim])
-
-X_ASM, Y_ASM = np.meshgrid(x_asm, y_asm)
-fig = plt.figure()
-ax = fig.add_subplot(1, 1, 1)
-cp = ax.contourf(X_ASM, Y_ASM, np.abs(u_out_asm_bl))
-fig = plt.gcf()
-fig.colorbar(cp, ax=ax, orientation="vertical")
-ax.set_xlabel("x [m]")
-ax.set_ylabel("y [m]")
-ax.set_title("Angular spectrum (numerical, bandlimited)")
-ax.set_xlim([-xlim, xlim])
-ax.set_ylim([-ylim, ylim])
-
-X_ASM, Y_ASM = np.meshgrid(x_asm, y_asm)
-fig = plt.figure()
-ax = fig.add_subplot(1, 1, 1)
-cp = ax.contourf(X_ASM, Y_ASM, np.abs(u_out_asm))
-fig = plt.gcf()
-fig.colorbar(cp, ax=ax, orientation="vertical")
-ax.set_xlabel("x [m]")
-ax.set_ylabel("y [m]")
-ax.set_title("Angular spectrum (numerical, non-bandlimited)")
-ax.set_xlim([-xlim, xlim])
-ax.set_ylim([-ylim, ylim])
-
+plot2d(x_asm.squeeze(), y_asm.squeeze(), np.abs(u_out_asm), title="Angular spectrum")
+plot2d(
+    x_asm.squeeze(), y_asm.squeeze(), np.abs(u_out_asm_bl), title="Band-limited angular spectrum"
+)
 
 plt.show()

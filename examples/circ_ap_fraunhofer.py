@@ -5,7 +5,7 @@ Circular aperture pattern in Fraunhofer regime
 Similar to Listing 4.2 from "Numerical Simulation of Optical Wave Propagation with Examples in
 MATLAB" (2010).
 
-Added Fresnel propagation and direct integration for comparison.
+Added Fresnel propagation for comparison.
 
 """
 
@@ -13,24 +13,23 @@ Added Fresnel propagation and direct integration for comparison.
 import numpy as np
 import matplotlib.pyplot as plt
 
+from waveprop.util import circ, sample_points, plot2d
+from waveprop.prop import (
+    fraunhofer,
+    fraunhofer_prop_circ_ap,
+    fresnel_one_step,
+    shifted_fresnel
+)
+from waveprop.condition import fraunhofer_schmidt, fraunhofer_goodman, fraunhofer_saleh
+
+# plotting parameters
 import matplotlib
 
 font = {"family": "Times New Roman", "weight": "normal", "size": 20}
 matplotlib.rc("font", **font)
 ALPHA = 0.7
 
-from waveprop.util import circ, sample_points, plot2d
-from waveprop.prop import (
-    fraunhofer,
-    fraunhofer_prop_circ_ap,
-    fresnel_one_step,
-    fft_di,
-    shifted_fresnel,
-    direct_integration,
-)
-from waveprop.condition import fraunhofer_schmidt, fraunhofer_goodman, fraunhofer_saleh
-
-
+# simulation parameters
 N = 512  # number of grid points per size
 L = 7.5e-3  # total size of grid
 diam = 1e-3  # diameter of aperture [m]
@@ -77,17 +76,10 @@ u_out_sfres /= np.max(np.abs(u_out_sfres))
 u_out_sfres *= np.max(np.abs(u_out_fres))
 
 
-# """ FFT direct integration"""
-# # x2_fft_di, y2_fft_di = sample_points(N=N * 8, delta=d1)
-# u_out_fft_di, x2_fft_di, y2_fft_di = fft_di(u_in, wv, d1, dz, N_out=N * 8, use_simpson=True)
-
-# """ Direct integration (ground truth) """
-# u_out_di = direct_integration(u_in, wv, d1, dz, x=x2[0], y=[0])
-
 """ Plot """
 # plot y2 = 0 cross-section
 idx = y2[:, 0] == 0
-# idx_fft_di = y2_fft_di[:, 0] == 0
+
 idx_sf = y2_sfres[:, 0] == 0
 plt.figure()
 plt.plot(
@@ -98,34 +90,22 @@ plt.plot(
 )
 plt.plot(x2_fres[0], np.abs(u_out_fres[:, idx]), label="fresnel (numerical)")
 plt.plot(x2_sfres[0], np.abs(u_out_sfres[:, idx_sf]), label="shifted fresnel")
-# plt.plot(x2_fft_di[0], np.abs(u_out_fft_di[:, idx_fft_di]), marker="*", label="FFT-DI", alpha=ALPHA)
-# plt.plot(x2[0], np.abs(u_out_di[0]), marker="*", label="direct integration", alpha=ALPHA)
 plt.xlabel("x[m]")
 plt.title("amplitude, y = 0")
 
 plt.legend()
-# plt.yscale("log")
+plt.yscale("log")
 if xlim is not None:
     plt.xlim([-xlim, xlim])
 
 # plot input
-ax = plot2d(x1.squeeze(), y1.squeeze(), u_in)
-ax.set_title("Aperture")
+plot2d(x1.squeeze(), y1.squeeze(), u_in, title="Aperture")
 
 # plot outputs
-ax = plot2d(x2.squeeze(), y2.squeeze(), np.abs(u_out_fraun))
-ax.set_title("Fraunhofer diffraction pattern")
-# ax.set_xlim([np.min(x2_sfres) - np.max(x2_sfres), 0])
+ax = plot2d(x2.squeeze(), y2.squeeze(), np.abs(u_out_fraun), title="Fraunhofer")
 ax.set_xlim([np.min(x2_sfres), np.max(x2_sfres)])
 ax.set_ylim([np.min(y2_sfres), np.max(y2_sfres)])
-# ax.set_xlim([np.min(x2_fft_di), np.max(x2_fft_di)])
-# ax.set_ylim([np.min(y2_fft_di), np.max(y2_fft_di)])
-
-# ax = plot2d(x2_fft_di.squeeze(), y2_fft_di.squeeze(), np.abs(u_out_fft_di))
-# ax.set_title("FFT-DI diffraction pattern")
-
-ax = plot2d(x2_sfres.squeeze(), y2_sfres.squeeze(), np.abs(u_out_sfres))
-ax.set_title("Shifted Fresnel diffraction pattern")
+plot2d(x2_sfres.squeeze(), y2_sfres.squeeze(), np.abs(u_out_sfres), title="Shifted Fresnel")
 
 
 plt.show()

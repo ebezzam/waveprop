@@ -150,7 +150,7 @@ def jinc(x):
     return y
 
 
-def plot2d(x_vals, y_vals, Z, pcolormesh=True, colorbar=True):
+def plot2d(x_vals, y_vals, Z, pcolormesh=True, colorbar=True, title=""):
 
     if pcolormesh:
         # define corners of mesh
@@ -174,4 +174,5 @@ def plot2d(x_vals, y_vals, Z, pcolormesh=True, colorbar=True):
         fig.colorbar(cp, ax=ax, orientation="vertical")
     ax.set_xlabel("x [m]")
     ax.set_ylabel("y [m]")
+    ax.set_title(title)
     return ax
