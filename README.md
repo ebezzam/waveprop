@@ -5,6 +5,8 @@ Scripts and functions to simulate free-space optical propagation.
 In the `examples` folder:
 - `circ_ap_fraunhofer.py`: simulate circular aperture in the Fraunhofer regime.
 - `square_ap_fresnel.py`: simulate square aperture in the Fresnel regime.
+- `bandlimiting_angular_spectrum.py`: show benefit of band-limiting angular spectrum method.
+- `off_axis.py`: comparing off-axis simulation with Fresnel, angular spectrum, and direct integration.
 - `circ_ap_lab.py`: simulate circular aperture with command-line defined arguments. Default is our lab setup.
 - `rect_ap_lab.py`: simulate rectangular aperture with command-line defined arguments. Default is our lab setup.
 - `single_slit_lab.py` (WIP): simulate single-slit with command-line defined arguments. Default is our lab setup.

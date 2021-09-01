@@ -150,7 +150,7 @@ def jinc(x):
     return y
 
 
-def plot2d(x_vals, y_vals, Z, pcolormesh=True, colorbar=True, title=""):
+def plot2d(x_vals, y_vals, Z, pcolormesh=True, colorbar=True, title="", ax=None):
 
     if pcolormesh:
         # define corners of mesh
@@ -162,8 +162,9 @@ def plot2d(x_vals, y_vals, Z, pcolormesh=True, colorbar=True, title=""):
         y_vals -= dy / 2
         y_vals = np.append(y_vals, [y_vals[-1] + dy])
 
-    fig = plt.figure()
-    ax = fig.add_subplot(1, 1, 1)
+    if ax is None:
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1)
     X, Y = np.meshgrid(x_vals, y_vals)
     if pcolormesh:
         cp = ax.pcolormesh(X, Y, Z.T)

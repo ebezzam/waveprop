@@ -10,7 +10,9 @@ from matplotlib import ticker
 import click
 
 from waveprop.util import rect2d, sample_points
-from waveprop.prop import fraunhofer, fraunhofer_prop_rect_ap, fresnel_two_step, angular_spectrum
+from waveprop.prop import angular_spectrum
+from waveprop.fresnel import fresnel_two_step
+from waveprop.fraunhofer import fraunhofer, fraunhofer_prop_rect_ap
 from waveprop.condition import (
     fraunhofer_schmidt,
     fraunhofer_goodman,

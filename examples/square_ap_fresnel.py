@@ -13,14 +13,16 @@ import matplotlib.pyplot as plt
 
 from waveprop.util import rect2d, sample_points, plot2d
 from waveprop.prop import (
-    fraunhofer_prop_rect_ap,
-    fresnel_one_step,
-    fresnel_prop_square_ap,
-    fresnel_two_step,
-    fresnel_conv,
     angular_spectrum,
     direct_integration,
 )
+from waveprop.fresnel import (
+    fresnel_one_step,
+    fresnel_two_step,
+    fresnel_conv,
+    fresnel_prop_square_ap,
+)
+from waveprop.fraunhofer import fraunhofer_prop_rect_ap
 from waveprop.condition import (
     fraunhofer_schmidt,
     fraunhofer_goodman,

@@ -14,12 +14,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from waveprop.util import circ, sample_points, plot2d
-from waveprop.prop import (
-    fraunhofer,
-    fraunhofer_prop_circ_ap,
-    fresnel_one_step,
-    shifted_fresnel
-)
+from waveprop.fresnel import fresnel_one_step, shifted_fresnel
+from waveprop.fraunhofer import fraunhofer, fraunhofer_prop_circ_ap
 from waveprop.condition import fraunhofer_schmidt, fraunhofer_goodman, fraunhofer_saleh
 
 # plotting parameters

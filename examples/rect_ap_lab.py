@@ -11,12 +11,12 @@ import click
 
 from waveprop.util import rect2d, sample_points, plot2d
 from waveprop.prop import (
-    fraunhofer_prop_rect_ap,
-    fresnel_prop_square_ap,
     direct_integration,
     angular_spectrum,
     angular_spectrum_ffs,
 )
+from waveprop.fresnel import fresnel_prop_square_ap, shifted_fresnel
+from waveprop.fraunhofer import fraunhofer_prop_rect_ap
 from waveprop.condition import (
     fraunhofer_schmidt,
     fraunhofer_goodman,
@@ -78,13 +78,21 @@ def prop(dz, wid, r_out, n_grid, grid_len, wv, di):
     u_out_asm_bl, x_asm, y_asm = angular_spectrum(u_in=u_in, wv=wv, delta=d1, dz=dz, bandlimit=True)
 
     """ Angular spectrum with FS coefficients """
-    N_out = n_grid
-    d2 = d1 / 2
-    out_shift = d2 * N_out / 2
-    # d2 = d1
-    # out_shift = 0
+    N_out = n_grid * 2
+    # d2 = d1 / 2
+    # out_shift = d2 * N_out / 2
+    d2 = d1
+    out_shift = 0
     u_out_ffs, x2_ffs, y2_ffs = angular_spectrum_ffs(
         u_in, wv, d1, dz, N_out=N_out, d2=d2, out_shift=out_shift
+    )
+
+    """ Shifted Fresnel """
+    output_scaling = 15
+    out_shift = 0
+    # out_shift = output_scaling * d1 * N / 2
+    u_out_sfres, x2_sfres, y2_sfres = shifted_fresnel(
+        u_in, wv, d1, dz, d2=output_scaling * d1, out_shift=out_shift
     )
 
     """ Direct integration (ground truth) """
@@ -153,6 +161,9 @@ def prop(dz, wid, r_out, n_grid, grid_len, wv, di):
     ax.set_title("Fresnel (theoretical)")
     ax.set_xlim([np.min(x2_ffs), np.max(x2_ffs)])
     ax.set_ylim([np.min(y2_ffs), np.max(y2_ffs)])
+
+    ax = plot2d(x2_sfres.squeeze(), y2_sfres.squeeze(), np.abs(u_out_sfres))
+    ax.set_title("Shifted Fresnel")
 
     plt.show()
 

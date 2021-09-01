@@ -10,11 +10,11 @@ from matplotlib import ticker
 
 from waveprop.util import circ, sample_points
 from waveprop.prop import (
-    fraunhofer_prop_circ_ap,
-    fresnel_two_step,
     angular_spectrum,
     direct_integration,
 )
+from waveprop.fresnel import fresnel_two_step
+from waveprop.fraunhofer import fraunhofer_prop_circ_ap
 from waveprop.condition import (
     fraunhofer_schmidt,
     fraunhofer_goodman,
