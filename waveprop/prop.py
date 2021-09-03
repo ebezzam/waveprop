@@ -311,7 +311,6 @@ def angular_spectrum(u_in, wv, d1, dz, bandlimit=True, out_shift=0, d2=None, N_o
             d2 = [d2, d2]
         assert len(d2) == 2
     if N_out is not None:
-        assert d2 is not None
         if isinstance(N_out, int):
             N_out = [N_out, N_out]
         assert len(N_out) == 2
@@ -320,27 +319,21 @@ def angular_spectrum(u_in, wv, d1, dz, bandlimit=True, out_shift=0, d2=None, N_o
         out_shift = [out_shift, out_shift]
     assert len(out_shift) == 2
 
-    # zero pad to simulate linear convolution
     Ny, Nx = u_in.shape
     Sx = Nx * d1[0]
     Sy = Ny * d1[1]
 
-    u_in_pad = np.zeros((2 * Ny, 2 * Nx), dtype=u_in.dtype)
-    u_in_pad[:Ny, :Nx] = u_in
-
-    # y_pad_edge = int(np.ceil(Ny / 2.0))
-    # x_pad_edge = int(np.ceil(Nx / 2.0))
-    # pad_width = ((y_pad_edge, y_pad_edge), (x_pad_edge, x_pad_edge))
-    # u_in_pad = np.pad(u_in, pad_width=pad_width, mode="constant", constant_values=0)
+    # zero pad to simulate linear convolution
+    y_pad_edge = int(np.ceil(Ny / 2.0))
+    x_pad_edge = int(np.ceil(Nx / 2.0))
+    pad_width = ((y_pad_edge, y_pad_edge), (x_pad_edge, x_pad_edge))
+    u_in_pad = np.pad(u_in, pad_width=pad_width, mode="constant", constant_values=0)
 
     # size of the padded field
     Ny_pad, Nx_pad = u_in_pad.shape
     Dy, Dx = (d1[1] * float(Ny_pad), d1[0] * float(Nx_pad))
 
-    # frequency coordinates sampling, TODO check (commented is from neural holography)
-    # neural holography is probably wrong if you compare with fftfreq
-    # fX = np.linspace(-1 / (2 * dx) + 0.5 / (2 * Dx), 1 / (2 * dx) - 0.5 / (2 * Dx), Nx)[:, np.newaxis].T
-    # fY = np.linspace(-1 / (2 * dy) + 0.5 / (2 * Dy), 1 / (2 * dy) - 0.5 / (2 * Dy), Ny)[:, np.newaxis]
+    # frequency coordinates sampling
     dfX = 1.0 / Dx
     dfY = 1.0 / Dy
     fX = np.arange(-Nx_pad / 2, Nx_pad / 2)[np.newaxis, :] * dfX
@@ -354,9 +347,8 @@ def angular_spectrum(u_in, wv, d1, dz, bandlimit=True, out_shift=0, d2=None, N_o
     prop_waves = fsq <= 1 / wv_sq
     evanescent_waves = np.logical_not(prop_waves)
     H[prop_waves] = np.exp(1j * k * dz * np.sqrt(1 - wv_sq * fsq[prop_waves]))
-    H[evanescent_waves] = np.exp(
-        -k * dz * np.sqrt(wv_sq * fsq[evanescent_waves] - 1)
-    )  # evanescent waves
+    # evanescent waves
+    H[evanescent_waves] = np.exp(-k * dz * np.sqrt(wv_sq * fsq[evanescent_waves] - 1))
 
     # shift
     if out_shift[0] or out_shift[1]:
@@ -375,27 +367,32 @@ def angular_spectrum(u_in, wv, d1, dz, bandlimit=True, out_shift=0, d2=None, N_o
         H_filter = (np.abs(fX - u0) <= fx_max) * (np.abs(fY - v0) < fy_max)
         H *= H_filter
 
-    # perform convolution, TODO : bad FFT shifting in neural holography code?
-    # U1 = np.fft.fftn(np.fft.ifftshift(Uin_pad), axes=(-2, -1), norm='ortho')
+    # perform convolution
     U1 = ft2(u_in_pad, delta=d1)
     U2 = H * U1
 
-    if d2 is None:
-        # no rescaling
-        # Uout = np.fft.fftshift(np.fft.ifftn(U2, axes=(-2, -1), norm='ortho'))
+    if d2 is None and N_out is not None:
+
+        # output coordinates
+        x2, y2 = sample_points(N=[Nx, Ny], delta=d1, shift=out_shift)
+
+        # back to spatial domain
         u_out = ift2(U2, delta_f=[dfX, dfY])
 
         # remove padding
-        u_out = u_out[:Ny, :Nx]
+        u_out = u_out[
+            y_pad_edge : y_pad_edge + Ny,
+            x_pad_edge : x_pad_edge + Nx,
+        ]
 
-        # coordinates
-        x2, y2 = sample_points(N=[Nx, Ny], delta=d1, shift=out_shift)
     else:
-
+        # rescaled BLAS
         if N_out is None:
             N_out = [Nx, Ny]
+        if d2 is None:
+            d2 = d1
 
-        # coordinates
+        # output coordinates
         x2, y2 = sample_points(N=N_out, delta=d2, shift=out_shift)
         alpha_x = d2[0] / dfX
         alpha_y = d2[1] / dfY
@@ -408,36 +405,19 @@ def angular_spectrum(u_in, wv, d1, dz, bandlimit=True, out_shift=0, d2=None, N_o
             * np.exp(1j * np.pi / alpha_y * y2 ** 2)
             * d2[1]
         )
-
         fX_scaled = alpha_x * fX
         fY_scaled = alpha_y * fY
         B = (
-            (1 / alpha_x)
+            U2
+            * (1 / alpha_x)
             * (1 / alpha_y)
-            * U2
             * np.exp(1j * np.pi / alpha_x * fX_scaled ** 2)
             * np.exp(1j * np.pi / alpha_y * fY_scaled ** 2)
         )
         f = np.exp(-1j * np.pi / alpha_x * fX_scaled ** 2) * np.exp(
             -1j * np.pi / alpha_y * fY_scaled ** 2
         )
-
-        # tmp = fftconvolve(B, f, mode="same")
-        tmp = np.fft.ifft2(np.fft.fft2(B) * np.fft.fft2(f))
-
-        import pudb
-
-        pudb.set_trace()
-
-        # import matplotlib.pyplot as plt
-        # X, Y = np.meshgrid(np.arange(tmp.shape[0]), np.arange(tmp.shape[1]))
-        # plt.pcolormesh(X, Y, np.abs(tmp))
-        # plt.pcolormesh(fX_scaled, fY_scaled, np.abs(B))
-        # plt.pcolormesh(fX_scaled, fY_scaled, np.abs(f))
-
-        # import pudb
-        # pudb.set_trace()
-
+        tmp = fftconvolve(B, f, mode="same")
         u_out *= tmp[
             int(Nx - N_out[0] / 2) : int(Nx + N_out[0] / 2),
             int(Ny - N_out[1] / 2) : int(Ny + N_out[1] / 2),

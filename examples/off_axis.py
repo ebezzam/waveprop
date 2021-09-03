@@ -52,12 +52,14 @@ for i, dz in enumerate(dz_vals):
     fresnel_saleh(wv, dz, x2_sfres, y2_sfres)
 
     """ Shifted Angular Spectrum"""
+    start_time = time.time()
     u_out_asm, x_asm, y_asm = angular_spectrum(
         u_in=u_in, wv=wv, d1=d1, dz=dz, bandlimit=True, out_shift=out_shift
     )
     print("Angular spectrum : {} s".format(time.time() - start_time))
 
     """ Direct integration (ground truth) """
+    start_time = time.time()
     u_out_di = direct_integration(u_in, wv, d1, dz, x=x_asm[0], y=[0])
     n_lines = len(y_asm)  # just computing one line!
     print("Direct integration : {} s".format((time.time() - start_time) * n_lines))

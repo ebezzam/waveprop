@@ -177,3 +177,42 @@ def plot2d(x_vals, y_vals, Z, pcolormesh=True, colorbar=True, title="", ax=None)
     ax.set_ylabel("y [m]")
     ax.set_title(title)
     return ax
+
+
+def bounding_box(ax, start, stop, period, shift=None, pcolormesh=True, **kwargs):
+    assert len(start) == 2
+    assert len(stop) == 2
+    if isinstance(period, int) or isinstance(period, float):
+        period = [period, period]
+    assert len(period) == 2
+    if pcolormesh:
+        assert shift is not None
+        if isinstance(shift, int) or isinstance(shift, float):
+            shift = [shift, shift]
+        assert len(shift) == 2
+    if shift is None:
+        shift = [0, 0]
+    ax.axvline(
+        x=start[0] - shift[0],
+        ymin=0.5 + (start[1] - shift[1]) / period[1],
+        ymax=0.5 + (stop[1] - shift[1]) / period[1],
+        **kwargs
+    )
+    ax.axvline(
+        x=stop[0] - shift[0],
+        ymin=0.5 + (start[1] - shift[1]) / period[1],
+        ymax=0.5 + (stop[1] - shift[1]) / period[1],
+        **kwargs
+    )
+    ax.axhline(
+        y=start[1] - shift[1],
+        xmin=0.5 + (start[0] - shift[0]) / period[0],
+        xmax=0.5 + (stop[0] - shift[0]) / period[0],
+        **kwargs
+    )
+    ax.axhline(
+        y=stop[1] - shift[1],
+        xmin=0.5 + (start[0] - shift[0]) / period[0],
+        xmax=0.5 + (stop[0] - shift[0]) / period[0],
+        **kwargs
+    )

@@ -203,7 +203,7 @@ def shifted_fresnel(u_in, wv, d1, dz, d2, out_shift=0):
     Section 3.
 
     TODO : check different Nx, Ny
-    TODO : fix/check scaling
+    TODO : fix/check amplitude scaling
 
     Limitation
     - Number of discrete element in target image must be equal to number of discrete elements in

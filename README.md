@@ -7,11 +7,12 @@ In the `examples` folder:
 - `square_ap_fresnel.py`: simulate square aperture in the Fresnel regime.
 - `bandlimiting_angular_spectrum.py`: show benefit of band-limiting angular spectrum method.
 - `off_axis.py`: comparing off-axis simulation with Fresnel, angular spectrum, and direct integration.
+- `rescale.py`: comparing off-axis, rescaled simulation with Fresnel and angular spectrum.
 - `circ_ap_lab.py`: simulate circular aperture with command-line defined arguments. Default is our lab setup.
 - `rect_ap_lab.py`: simulate rectangular aperture with command-line defined arguments. Default is our lab setup.
 - `single_slit_lab.py` (WIP): simulate single-slit with command-line defined arguments. Default is our lab setup.
 
-NB: `click` is required for some of the scripts for parsing command-line arguments.
+NB: `click` is required for some scripts for parsing command-line arguments.
 
 Following propagation models are implemented. All make use of FFT unless otherwise noted.
 - Fraunhofer.
@@ -31,6 +32,7 @@ source waveprop_env/bin/activate
 
 # install
 pip install -e .
+git+https://github.com/ebezzam/pyFFS.git@task/add_examples#egg=pyFFS
 ```
 
 ## Literature and references
@@ -100,3 +102,9 @@ Compare / mention complexity of different approaches
 - PyOptica: https://gitlab.com/pyoptica/pyoptica
     - Free-space propagation: https://gitlab.com/pyoptica/pyoptica/-/blob/master/pyoptica/optical_elements/free_space.py
     - Gerschberg-Saxton: https://gitlab.com/pyoptica/pyoptica/-/blob/master/notebooks/gerchberg_saxton.ipynb
+- DeepOptics: https://github.com/vsitzmann/deepoptics
+    - Differentiable free-space propagation: https://github.com/vsitzmann/deepoptics/blob/defbb975309a6a3f3d2a86b92e82d02156ab213e/src/layers/optics.py#L386
+- Angular Spectum: https://github.com/rafael-fuente/Diffraction-Simulations--Angular-Spectrum-Method
+    - Monochromatic: https://github.com/rafael-fuente/Diffraction-Simulations--Angular-Spectrum-Method/blob/5b3610643b97ab6b81c80ef4c8aa5b0d9501f314/diffractsim/monochromatic_simulator.py#L191
+    - Polychromatic: https://github.com/rafael-fuente/Diffraction-Simulations--Angular-Spectrum-Method/blob/5b3610643b97ab6b81c80ef4c8aa5b0d9501f314/diffractsim/polychromatic_simulator.py#L190
+  
