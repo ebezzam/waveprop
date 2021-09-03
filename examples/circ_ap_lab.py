@@ -73,7 +73,7 @@ def prop(dz, r_in, r_out, n_grid, grid_len, wv, di):
     fresnel_saleh(wv, dz, x=x2, y=y2)
 
     """ Angular spectrum """
-    u_out_asm_bl, x_asm, y_asm = angular_spectrum(u_in=u_in, wv=wv, delta=d1, dz=dz, bandlimit=True)
+    u_out_asm_bl, x_asm, y_asm = angular_spectrum(u_in=u_in, wv=wv, d1=d1, dz=dz, bandlimit=True)
 
     """ Direct integration (ground truth) """
     if di:

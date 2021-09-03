@@ -1,11 +1,5 @@
 """
-Circular aperture pattern in Fraunhofer regime
-----------------------------------------------
-
-Similar to Listing 4.2 from "Numerical Simulation of Optical Wave Propagation with Examples in
-MATLAB" (2010).
-
-Added Fresnel propagation for comparison.
+Off-axis optical wave propagation.
 
 """
 
@@ -52,15 +46,16 @@ for i, dz in enumerate(dz_vals):
     u_out_fres, x2_fres, y2_fres = fresnel_one_step(u_in, wv, d1, dz)  # TODO fix/remove scaling
     u_out_sfres /= np.max(np.abs(u_out_sfres))
     u_out_sfres *= np.max(np.abs(u_out_fres))
-
+    print("-- ", end="")
     fresnel_goodman(wv, dz, x1, y1, x2_sfres, y2_sfres)
+    print("-- ", end="")
     fresnel_saleh(wv, dz, x2_sfres, y2_sfres)
 
     """ Shifted Angular Spectrum"""
     u_out_asm, x_asm, y_asm = angular_spectrum(
-        u_in=u_in, wv=wv, delta=d1, dz=dz, bandlimit=True, out_shift=out_shift
+        u_in=u_in, wv=wv, d1=d1, dz=dz, bandlimit=True, out_shift=out_shift
     )
-    print("\nAngular spectrum : {} s".format(time.time() - start_time))
+    print("Angular spectrum : {} s".format(time.time() - start_time))
 
     """ Direct integration (ground truth) """
     u_out_di = direct_integration(u_in, wv, d1, dz, x=x_asm[0], y=[0])

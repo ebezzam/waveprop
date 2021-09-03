@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.signal import fftconvolve
 from waveprop.util import ft2, ift2, jinc, sample_points
 from pyffs import ffsn_sample, ffsn, fs_interpn, ffsn_shift
 
@@ -264,7 +265,7 @@ def angular_spectrum_ffs(u_in, wv, d1, dz, d2=None, N_out=None, out_shift=0):
     return u_out, x2, y2
 
 
-def angular_spectrum(u_in, wv, delta, dz, bandlimit=True, out_shift=0):
+def angular_spectrum(u_in, wv, d1, dz, bandlimit=True, out_shift=0, d2=None, N_out=None):
     """
     Band-Limited Angular Spectrum Method for Numerical Simulation of Free-Space Propagation in Far
     and Near Fields (2009)
@@ -279,8 +280,9 @@ def angular_spectrum(u_in, wv, delta, dz, bandlimit=True, out_shift=0):
         Input amplitude distribution, [Ny, Nx].
     wv : float
         Wavelength [m].
-    delta : float
-        Input sampling period for both x-dimension and y-dimension (if different) [m].
+    d1 : float or list or tuple
+        Input sampling period for both x-dimension and y-dimension [m]. Scalar if the same for both
+        dimensions.
     dz : float
         Propagation distance [m].
     bandlimit : bool
@@ -290,18 +292,38 @@ def angular_spectrum(u_in, wv, delta, dz, bandlimit=True, out_shift=0):
     out_shift : array_like
         Shift from optical axis at output, as proposed in "Shifted angular spectrum method for
         off-axis numerical propagation" (2010).
+    d2 : float or list or tuple, optional
+        Output sampling period for both x-dimension and y-dimension [m]. Scalar if the same for both
+        dimensions. Rescale, as proposed in "Band-limited angular spectrum numerical propagation
+        method with selective scaling of observation window size and sample number" (2012). Default
+        is to use same sampling period as input.
+    N_out : int or list or tuple, optional
+        Number of output samples for x-dimension and y-dimensions. Scalar if the same for both
+        dimensions. Rescale, as proposed in "Band-limited angular spectrum numerical propagation
+        method with selective scaling of observation window size and sample number" (2012). Default
+        is to use same sampling period as input.
     """
-    if isinstance(delta, float) or isinstance(delta, int):
-        delta = [delta, delta]
-    assert len(delta) == 2
+    if isinstance(d1, float) or isinstance(d1, int):
+        d1 = [d1, d1]
+    assert len(d1) == 2
+    if d2 is not None:
+        if isinstance(d2, float) or isinstance(d2, int):
+            d2 = [d2, d2]
+        assert len(d2) == 2
+    if N_out is not None:
+        assert d2 is not None
+        if isinstance(N_out, int):
+            N_out = [N_out, N_out]
+        assert len(N_out) == 2
+        assert [isinstance(val, int) for val in N_out]
     if isinstance(out_shift, float) or isinstance(out_shift, int):
         out_shift = [out_shift, out_shift]
     assert len(out_shift) == 2
 
     # zero pad to simulate linear convolution
     Ny, Nx = u_in.shape
-    Sx = Nx * delta[0]
-    Sy = Ny * delta[1]
+    Sx = Nx * d1[0]
+    Sy = Ny * d1[1]
 
     u_in_pad = np.zeros((2 * Ny, 2 * Nx), dtype=u_in.dtype)
     u_in_pad[:Ny, :Nx] = u_in
@@ -313,7 +335,7 @@ def angular_spectrum(u_in, wv, delta, dz, bandlimit=True, out_shift=0):
 
     # size of the padded field
     Ny_pad, Nx_pad = u_in_pad.shape
-    Dy, Dx = (delta[1] * float(Ny_pad), delta[0] * float(Nx_pad))
+    Dy, Dx = (d1[1] * float(Ny_pad), d1[0] * float(Nx_pad))
 
     # frequency coordinates sampling, TODO check (commented is from neural holography)
     # neural holography is probably wrong if you compare with fftfreq
@@ -345,9 +367,6 @@ def angular_spectrum(u_in, wv, delta, dz, bandlimit=True, out_shift=0):
     # - Eq 13 and 20 of Matsushima et al. (2009)
     # - Table 1 of Matsushima (2010) for generalization to off-axis
     if bandlimit:
-        # fx_max = 1 / np.sqrt((2 * dz * (1 / Dx)) ** 2 + 1) / wv
-        # fy_max = 1 / np.sqrt((2 * dz * (1 / Dy)) ** 2 + 1) / wv
-        # H_filter = (np.abs(fX) <= fx_max) * (np.abs(fY) < fy_max)
         u0, u_width, v0, v_width = bandpass(
             Sx=Sx, Sy=Sy, x0=out_shift[0], y0=out_shift[1], z0=dz, wv=wv
         )
@@ -358,19 +377,71 @@ def angular_spectrum(u_in, wv, delta, dz, bandlimit=True, out_shift=0):
 
     # perform convolution, TODO : bad FFT shifting in neural holography code?
     # U1 = np.fft.fftn(np.fft.ifftshift(Uin_pad), axes=(-2, -1), norm='ortho')
-    U1 = ft2(u_in_pad, delta=delta)
+    U1 = ft2(u_in_pad, delta=d1)
     U2 = H * U1
 
-    # Uout = np.fft.fftshift(np.fft.ifftn(U2, axes=(-2, -1), norm='ortho'))
-    u_out = ift2(U2, delta_f=[dfX, dfY])
+    if d2 is None:
+        # no rescaling
+        # Uout = np.fft.fftshift(np.fft.ifftn(U2, axes=(-2, -1), norm='ortho'))
+        u_out = ift2(U2, delta_f=[dfX, dfY])
 
-    # remove padding
-    # u_out = u_out[pad_width[0][0] : -pad_width[0][0], pad_width[1][0] : -pad_width[1][1]]
-    u_out = u_out[:Ny, :Nx]
+        # remove padding
+        u_out = u_out[:Ny, :Nx]
 
-    # coordinates
-    x2, y2 = sample_points(N=[Nx, Ny], delta=delta, shift=out_shift)
-    # x2, y2 = np.meshgrid(np.arange(-Nx / 2, Nx / 2) * delta[0], np.arange(-Ny / 2, Ny / 2) * delta[1])
+        # coordinates
+        x2, y2 = sample_points(N=[Nx, Ny], delta=d1, shift=out_shift)
+    else:
+
+        if N_out is None:
+            N_out = [Nx, Ny]
+
+        # coordinates
+        x2, y2 = sample_points(N=N_out, delta=d2, shift=out_shift)
+        alpha_x = d2[0] / dfX
+        alpha_y = d2[1] / dfY
+
+        # Eq 9 of "Band-limited angular spectrum numerical propagation method with selective scaling
+        # of observation window size and sample number" (2012)
+        u_out = (
+            np.exp(1j * np.pi / alpha_x * x2 ** 2)
+            * d2[0]
+            * np.exp(1j * np.pi / alpha_y * y2 ** 2)
+            * d2[1]
+        )
+
+        fX_scaled = alpha_x * fX
+        fY_scaled = alpha_y * fY
+        B = (
+            (1 / alpha_x)
+            * (1 / alpha_y)
+            * U2
+            * np.exp(1j * np.pi / alpha_x * fX_scaled ** 2)
+            * np.exp(1j * np.pi / alpha_y * fY_scaled ** 2)
+        )
+        f = np.exp(-1j * np.pi / alpha_x * fX_scaled ** 2) * np.exp(
+            -1j * np.pi / alpha_y * fY_scaled ** 2
+        )
+
+        # tmp = fftconvolve(B, f, mode="same")
+        tmp = np.fft.ifft2(np.fft.fft2(B) * np.fft.fft2(f))
+
+        import pudb
+
+        pudb.set_trace()
+
+        # import matplotlib.pyplot as plt
+        # X, Y = np.meshgrid(np.arange(tmp.shape[0]), np.arange(tmp.shape[1]))
+        # plt.pcolormesh(X, Y, np.abs(tmp))
+        # plt.pcolormesh(fX_scaled, fY_scaled, np.abs(B))
+        # plt.pcolormesh(fX_scaled, fY_scaled, np.abs(f))
+
+        # import pudb
+        # pudb.set_trace()
+
+        u_out *= tmp[
+            int(Nx - N_out[0] / 2) : int(Nx + N_out[0] / 2),
+            int(Ny - N_out[1] / 2) : int(Ny + N_out[1] / 2),
+        ]
 
     return u_out, x2, y2
 

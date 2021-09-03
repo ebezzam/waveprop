@@ -82,8 +82,8 @@ fresnel_saleh(wv, dz, x2, y2)
 
 
 """ Angular spectrum """
-u_out_asm, x_asm, y_asm = angular_spectrum(u_in=u_in, wv=wv, delta=d1, dz=dz, bandlimit=False)
-u_out_asm_bl, _, _ = angular_spectrum(u_in=u_in, wv=wv, delta=d1, dz=dz, bandlimit=True)
+u_out_asm, x_asm, y_asm = angular_spectrum(u_in=u_in, wv=wv, d1=d1, dz=dz, bandlimit=False)
+u_out_asm_bl, _, _ = angular_spectrum(u_in=u_in, wv=wv, d1=d1, dz=dz, bandlimit=True)
 
 
 """ Direct integration (ground truth) """

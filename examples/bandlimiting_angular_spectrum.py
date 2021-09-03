@@ -35,8 +35,8 @@ x1, y1 = sample_points(N=N, delta=d1)
 u_in = rect2d(x1, y1, diam)
 
 """ Angular spectrum """
-u_out_asm, x_asm, y_asm = angular_spectrum(u_in=u_in, wv=wv, delta=d1, dz=dz, bandlimit=False)
-u_out_asm_bl, _, _ = angular_spectrum(u_in=u_in, wv=wv, delta=d1, dz=dz, bandlimit=True)
+u_out_asm, x_asm, y_asm = angular_spectrum(u_in=u_in, wv=wv, d1=d1, dz=dz, bandlimit=False)
+u_out_asm_bl, _, _ = angular_spectrum(u_in=u_in, wv=wv, d1=d1, dz=dz, bandlimit=True)
 
 """ Direct integration (ground truth) """
 u_out_di = direct_integration(u_in, wv, d1, dz, x=x_asm[0], y=[0])

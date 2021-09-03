@@ -221,7 +221,7 @@ def shifted_fresnel(u_in, wv, d1, dz, d2, out_shift=0):
     dz : float
         Propagation distance [m].
     d2 : float or list or tuple
-        Input sampling period for both x-dimension and y-dimension [m]. Scalar if the same for both
+        Output sampling period for both x-dimension and y-dimension [m]. Scalar if the same for both
         dimensions.
     out_shift : array_like
         Shift from optical axis at output.
@@ -274,7 +274,7 @@ def shifted_fresnel(u_in, wv, d1, dz, d2, out_shift=0):
     # -- Eq 17, Eq 14 of Bailey
     g = np.exp(1j * np.pi * s * p ** 2) * np.exp(1j * np.pi * t * q ** 2)
 
-    # -- pad sequences along x-dimension, Eq 15-16 of Bailey
+    # -- pad 2-D sequence, Eq 15-16 of Bailey
     pad_size = (2 * Ny - 1, 2 * Nx - 1)
     f_pad = np.zeros(pad_size, dtype=f.dtype)
     f_pad[:Ny, :Nx] = f
@@ -296,6 +296,7 @@ def shifted_fresnel(u_in, wv, d1, dz, d2, out_shift=0):
     tmp = (
         np.fft.ifft2(np.fft.fft2(f_pad) * np.fft.fft2(g_pad))[:Ny, :Nx] / pad_size[0] / pad_size[1]
     )
+
     return fact_fresnel * fact_sdft * tmp, x_m, y_n
 
 
