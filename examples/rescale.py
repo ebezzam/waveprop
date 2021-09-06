@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import time
 from waveprop.util import rect2d, sample_points, plot2d, bounding_box
 from waveprop.fresnel import shifted_fresnel
-from waveprop.prop import angular_spectrum
+from waveprop.prop import angular_spectrum, angular_spectrum_ffs
 from waveprop.condition import fresnel_goodman, fresnel_saleh
 import matplotlib
 
@@ -67,8 +67,21 @@ for i, dz in enumerate(dz_vals):
     print("Angular spectrum : {} s".format(time.time() - start_time))
     u_out_asm, x_asm, y_asm = angular_spectrum(u_in=u_in, wv=wv, d1=d1, dz=dz, bandlimit=True)
 
+    """ pyFFS approach """
+    start_time = time.time()
+    u_out_asm_pyffs, x_asm_pyffs, y_asm_pyffs = angular_spectrum_ffs(
+        u_in=u_in,
+        wv=wv,
+        d1=d1,
+        dz=dz,
+        N_out=N_out,
+        d2=output_scaling * d1,
+        out_shift=out_shift,
+    )
+    print("Angular spectrum (pyFFS) : {} s".format(time.time() - start_time))
+
     """ Plot """
-    _, ax_2d = plt.subplots(ncols=3, figsize=(25, 5))
+    _, ax_2d = plt.subplots(ncols=4, figsize=(25, 5))
     plot2d(
         x2_sfres.squeeze(),
         y2_sfres.squeeze(),
@@ -82,6 +95,13 @@ for i, dz in enumerate(dz_vals):
         np.abs(u_out_asm_scaled),
         title="Scaled BLAS {} m".format(dz),
         ax=ax_2d[2],
+    )
+    plot2d(
+        x_asm_pyffs.squeeze(),
+        y_asm_pyffs.squeeze(),
+        np.abs(u_out_asm_pyffs),
+        title="BLAS pyFFS {} m".format(dz),
+        ax=ax_2d[3],
     )
     plot2d(x_asm.squeeze(), y_asm.squeeze(), np.abs(u_out_asm), title="BLAS", ax=ax_2d[0])
     bounding_box(

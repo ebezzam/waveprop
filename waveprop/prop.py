@@ -176,6 +176,8 @@ def angular_spectrum_ffs(u_in, wv, d1, dz, d2=None, N_out=None, out_shift=0):
     """
     Can control output sampling like shifted Fresnel, but maybe only within period?
 
+    TODO: set data type
+
     Exactness of Angular spectrum.
 
     With Fresnel could go output of input region. Here limited by input region?
@@ -195,36 +197,53 @@ def angular_spectrum_ffs(u_in, wv, d1, dz, d2=None, N_out=None, out_shift=0):
     if isinstance(N_out, int):
         N_out = [N_out, N_out]
     assert len(N_out) == 2
+    assert [isinstance(val, int) for val in N_out]
+    if isinstance(out_shift, float) or isinstance(out_shift, int):
+        out_shift = [out_shift, out_shift]
+    assert len(out_shift) == 2
 
-    # output coordinates
-    x2, y2 = sample_points(N=N_out, delta=d2, shift=out_shift)
+    Ny, Nx = u_in.shape
+    Sx = Nx * d1[0]
+    Sy = Ny * d1[1]
 
-    # determine necessary padding
-    x_out_max = np.max(x2)
-    y_out_max = np.max(y2)
-    x_out_min = np.min(x2)
-    y_out_min = np.min(y2)
-
-    # padding_x = max(int(np.ceil(x_out_max * 2 / d1[0])) - Nx, Nx)
-    # padding_y = max(int(np.ceil(y_out_max * 2 / d1[1])) - Ny, Ny)
-    # x_pad_edge = int(np.ceil(padding_x / 2.0))
-    # y_pad_edge = int(np.ceil(padding_y / 2.0))
-    # pad_width = ((y_pad_edge, y_pad_edge), (x_pad_edge, x_pad_edge))
-
-    x_pad_neg = int(np.ceil(max(x_out_min / d1[0] - Nx / 2, Nx / 2)))
-    x_pad_pos = int(np.ceil(max(x_out_max / d1[0] - Nx / 2, Nx / 2)))
-    y_pad_neg = int(np.ceil(max(y_out_min / d1[1] - Ny / 2, Ny / 2)))
-    y_pad_pos = int(np.ceil(max(y_out_max / d1[1] - Ny / 2, Ny / 2)))
-    pad_width = ((y_pad_neg, y_pad_pos), (x_pad_neg, x_pad_pos))
-
-    #
-    # import pudb; pudb.set_trace()
-
+    # zero pad to simulate linear convolution
+    y_pad_edge = int(np.ceil(Ny / 2.0))
+    x_pad_edge = int(np.ceil(Nx / 2.0))
+    pad_width = ((y_pad_edge, y_pad_edge), (x_pad_edge, x_pad_edge))
     u_in_pad = np.pad(u_in, pad_width=pad_width, mode="constant", constant_values=0)
 
-    # size of the field
+    # size of the padded field
     Ny_pad, Nx_pad = u_in_pad.shape
     Dy, Dx = (d1[1] * float(Ny_pad), d1[0] * float(Nx_pad))
+
+    # frequency coordinates sampling
+    dfX = 1.0 / Dx
+    dfY = 1.0 / Dy
+    # -- odd number of FS coefficients centered around zero
+    fX = np.arange(-Nx_pad / 2 + 1, Nx_pad / 2)[np.newaxis, :] * dfX
+    fY = np.arange(-Ny_pad / 2 + 1, Ny_pad / 2)[:, np.newaxis] * dfY
+    fsq = fX ** 2 + fY ** 2
+
+    # compute transfer function (Saleh / Sepand's notes but w/o abs val on distance)
+    k = 2 * np.pi / wv
+    wv_sq = wv ** 2
+    H = np.zeros((fY.shape[0], fX.shape[1]), dtype=complex)
+    prop_waves = fsq <= 1 / wv_sq
+    evanescent_waves = np.logical_not(prop_waves)
+    H[prop_waves] = np.exp(1j * k * dz * np.sqrt(1 - wv_sq * fsq[prop_waves]))
+    # evanescent waves
+    H[evanescent_waves] = np.exp(-k * dz * np.sqrt(wv_sq * fsq[evanescent_waves] - 1))
+
+    # band-limited to avoid aliasing
+    # - Eq 13 and 20 of Matsushima et al. (2009)
+    # - Table 1 of Matsushima (2010) for generalization to off-axis
+    u0, u_width, v0, v_width = bandpass(
+        Sx=Sx, Sy=Sy, x0=out_shift[0], y0=out_shift[1], z0=dz, wv=wv
+    )
+    fx_max = u_width / 2
+    fy_max = v_width / 2
+    H_filter = (np.abs(fX - u0) <= fx_max) * (np.abs(fY - v0) < fy_max)
+    H *= H_filter
 
     # compute FS coefficients of input
     # -- reshuffle input for pyFFS
@@ -234,33 +253,20 @@ def angular_spectrum_ffs(u_in, wv, d1, dz, d2=None, N_out=None, out_shift=0):
     N_FS = N_s // 2 * 2 - 1  # must be odd
     samp_loc, idx = ffsn_sample(T, N_FS, T_c, N_s)
     u_in_pad_reorder = ffsn_shift(u_in_pad, idx)
-    # -- compute coefficients
-    U = ffsn(u_in_pad_reorder, T, T_c, N_FS)[: N_FS[1], : N_FS[0]]
 
-    # compute truncated FS coefficients of response
-    # -- get corresponding frequencies
-    fX = np.arange(-N_FS[0] / 2, N_FS[0] / 2)[np.newaxis, :] / T[0]
-    fY = np.arange(-N_FS[1] / 2, N_FS[1] / 2)[:, np.newaxis] / T[1]
-    fsq = fX ** 2 + fY ** 2
-    # -- compute response
-    k = 2 * np.pi / wv
-    wv_sq = wv ** 2
-    H = np.zeros_like(U).astype(complex)
-    prop_waves = fsq <= 1 / wv_sq
-    evanescent_waves = np.logical_not(prop_waves)
-    H[prop_waves] = np.exp(1j * k * dz * np.sqrt(1 - wv_sq * fsq[prop_waves]))
-    H[evanescent_waves] = np.exp(-k * dz * np.sqrt(wv_sq * fsq[evanescent_waves] - 1))
-    # -- bandlimit to avoid aliasing
-    fx_max = 1 / np.sqrt((2 * dz * (1 / Dx)) ** 2 + 1) / wv
-    fy_max = 1 / np.sqrt((2 * dz * (1 / Dy)) ** 2 + 1) / wv
-    H_filter = (np.abs(fX) <= fx_max) * (np.abs(fY) < fy_max)
-    H *= H_filter
+    # -- compute coefficients
+    U1 = ffsn(u_in_pad_reorder, T, T_c, N_FS)[: N_FS[1], : N_FS[0]]
+
+    # convolution
+    U2 = H * U1
+
+    # output coordinates
+    x2, y2 = sample_points(N=N_out, delta=d2, shift=out_shift)
 
     # use output FS coefficients to interpolate
-    output_FS = U * H
     a = [np.min(x2), np.min(y2)]
     b = [np.max(x2), np.max(y2)]
-    u_out = fs_interpn(x_FS=output_FS, T=T, a=a, b=b, M=N_out)
+    u_out = fs_interpn(x_FS=U2, T=T, a=a, b=b, M=N_out)
 
     return u_out, x2, y2
 
@@ -271,7 +277,6 @@ def angular_spectrum(u_in, wv, d1, dz, bandlimit=True, out_shift=0, d2=None, N_o
     and Near Fields (2009)
 
     TODO : set data type
-    TODO : set output sampling
     TODO : padding optional
 
     Parameters
