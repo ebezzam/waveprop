@@ -263,8 +263,8 @@ def angular_spectrum_ffs(u_in, wv, d1, dz, d2=None, N_out=None, out_shift=0):
     x2, y2 = sample_points(N=N_out, delta=d2, shift=out_shift)
 
     # use output FS coefficients to interpolate
-    a = [np.min(x2), np.min(y2)]
-    b = [np.max(x2), np.max(y2)]
+    a = [np.min(y2), np.min(x2)]
+    b = [np.max(y2), np.max(x2)]
     u_out = fs_interpn(x_FS=U2, T=T, a=a, b=b, M=N_out)
 
     return u_out, x2, y2

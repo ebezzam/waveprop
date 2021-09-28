@@ -216,3 +216,39 @@ def bounding_box(ax, start, stop, period, shift=None, pcolormesh=True, **kwargs)
         xmax=0.5 + (stop[0] - shift[0]) / period[0],
         **kwargs
     )
+
+
+def rect_tiling(N_in, N_out, L, n_tiles, prop_func):
+    """
+    Assumes:
+    - centered around (0, 0).
+    - input and output regions are the same
+
+    :param N_in:
+    :param N_out:
+    :param L:
+    :param n_tiles:
+    :return:
+    """
+
+    d2 = L / N_out
+
+    # compute offsets for each tile
+    offsets_1d = (np.arange(n_tiles) + 1) * L / n_tiles
+    offsets_1d -= np.mean(offsets_1d)
+    offsets = np.stack(np.meshgrid(offsets_1d, offsets_1d), -1).reshape(-1, 2)
+
+    # loop over tiles
+    tiles = []
+    for out_shift in offsets:
+        u_out = prop_func(out_shift=out_shift)
+        tiles.append(u_out)
+
+    # combine tiles
+    u_out = np.array(tiles).reshape(n_tiles, n_tiles, N_in, N_in)
+    u_out = np.transpose(u_out, axes=(0, 2, 1, 3))
+    u_out = np.concatenate(u_out, axis=0)
+    u_out = np.transpose(u_out, axes=(1, 2, 0))
+    u_out = np.concatenate(u_out, axis=0).T
+    x2, y2 = sample_points(N=N_out, delta=d2)
+    return u_out, x2, y2
