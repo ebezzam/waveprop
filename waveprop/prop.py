@@ -251,8 +251,7 @@ def angular_spectrum_ffs(u_in, wv, d1, dz, d2=None, N_out=None, out_shift=0):
     T_c = [0, 0]
     N_s = np.array(u_in_pad.shape)
     N_FS = N_s // 2 * 2 - 1  # must be odd
-    samp_loc, idx = ffsn_sample(T, N_FS, T_c, N_s)
-    u_in_pad_reorder = ffsn_shift(u_in_pad, idx)
+    u_in_pad_reorder = ffsn_shift(u_in_pad)
 
     # -- compute coefficients
     U1 = ffsn(u_in_pad_reorder, T, T_c, N_FS)[: N_FS[1], : N_FS[0]]

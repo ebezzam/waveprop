@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 import time
 from waveprop.util import rect2d, sample_points, plot2d
 from waveprop.fresnel import fresnel_one_step, shifted_fresnel
-from waveprop.fraunhofer import fraunhofer, fraunhofer_prop_circ_ap
 from waveprop.prop import angular_spectrum, direct_integration
 from waveprop.condition import fresnel_goodman, fresnel_saleh
 import matplotlib
