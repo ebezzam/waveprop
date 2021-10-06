@@ -2,6 +2,7 @@ import numpy as np
 from numpy.fft import fftshift, fft2, ifftshift, ifft2
 from scipy.special import j1
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 
 
 def ft2(g, delta):
@@ -66,8 +67,8 @@ def sample_points(N, delta, shift=0):
     if isinstance(shift, float) or isinstance(shift, int):
         shift = [shift, shift]
     assert len(shift) == 2
-    x = np.arange(-N[0] / 2, N[0] / 2)[np.newaxis, :] * delta[0] + shift[0]
-    y = np.arange(-N[1] / 2, N[1] / 2)[:, np.newaxis] * delta[1] + shift[1]
+    x = np.arange(-N[1] / 2, N[1] / 2)[np.newaxis, :] * delta[1] + shift[1]
+    y = np.arange(-N[0] / 2, N[0] / 2)[:, np.newaxis] * delta[0] + shift[0]
     return x, y
 
 
@@ -129,7 +130,7 @@ def rect2d(x, y, D):
     if isinstance(D, float) or isinstance(D, int):
         D = [D, D]
     assert len(D) == 2
-    return rect(x, D[0]) * rect(y, D[1])
+    return rect(x, D[1]) * rect(y, D[0])
 
 
 def jinc(x):
@@ -150,8 +151,13 @@ def jinc(x):
     return y
 
 
-def plot2d(x_vals, y_vals, Z, pcolormesh=True, colorbar=True, title="", ax=None):
+def plot2d(x_vals, y_vals, Z, pcolormesh=False, colorbar=True, title="", ax=None):
+    """
+    pcolormesh doesn't keep square aspect ratio for each pixel
+    """
 
+    x_vals = x_vals.squeeze()
+    y_vals = y_vals.squeeze()
     if pcolormesh:
         # define corners of mesh
         dx = x_vals[1] - x_vals[0]
@@ -167,9 +173,20 @@ def plot2d(x_vals, y_vals, Z, pcolormesh=True, colorbar=True, title="", ax=None)
         ax = fig.add_subplot(1, 1, 1)
     X, Y = np.meshgrid(x_vals, y_vals)
     if pcolormesh:
-        cp = ax.pcolormesh(X, Y, Z.T)
+        cp = ax.pcolormesh(X, Y, Z, cmap=cm.gray)
+
     else:
-        cp = ax.contourf(X, Y, Z.T)
+        cp = ax.imshow(
+            Z,
+            extent=[
+                x_vals.min(),
+                x_vals.max(),
+                y_vals.min(),
+                y_vals.max(),
+            ],
+            cmap="gray",
+            origin="lower",
+        )
     fig = plt.gcf()
     if colorbar:
         fig.colorbar(cp, ax=ax, orientation="vertical")

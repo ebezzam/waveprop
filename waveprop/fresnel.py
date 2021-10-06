@@ -192,7 +192,7 @@ def fresnel_prop_square_ap(x, y, width, wv, dz):
     )
 
 
-def shifted_fresnel(u_in, wv, d1, dz, d2, out_shift=0):
+def shifted_fresnel(u_in, wv, d1, dz, d2=None, out_shift=0):
     """
     "Shifted Fresnel diffraction for computational holography." (2007)
 
@@ -229,6 +229,8 @@ def shifted_fresnel(u_in, wv, d1, dz, d2, out_shift=0):
     """
     if isinstance(d1, float) or isinstance(d1, int):
         d1 = [d1, d1]
+    if d2 is None:
+        d2 = d1
     if isinstance(d2, float) or isinstance(d2, int):
         d2 = [d2, d2]
 
@@ -236,7 +238,7 @@ def shifted_fresnel(u_in, wv, d1, dz, d2, out_shift=0):
     k = 2 * np.pi / wv
 
     # output coordinates, same number as input
-    x_m, y_n = sample_points(N=[Nx, Ny], delta=d2, shift=out_shift)
+    x_m, y_n = sample_points(N=[Ny, Nx], delta=d2, shift=out_shift)
     m = np.arange(Nx)[np.newaxis, :]
     n = np.arange(Ny)[:, np.newaxis]
     x0 = np.min(x_m)
@@ -244,7 +246,7 @@ def shifted_fresnel(u_in, wv, d1, dz, d2, out_shift=0):
 
     # source coordinates
     Ny, Nx = u_in.shape
-    x_p, y_q = sample_points(N=[Nx, Ny], delta=d1)
+    x_p, y_q = sample_points(N=[Ny, Nx], delta=d1)
     p = np.arange(Nx)[np.newaxis, :]
     q = np.arange(Ny)[:, np.newaxis]
     x0_in = np.min(x_p)

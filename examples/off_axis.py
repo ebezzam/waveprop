@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import time
 from waveprop.util import rect2d, sample_points, plot2d
 from waveprop.fresnel import fresnel_one_step, shifted_fresnel
-from waveprop.prop import angular_spectrum, direct_integration
+from waveprop.rs import angular_spectrum, direct_integration
 from waveprop.condition import fresnel_goodman, fresnel_saleh
 import matplotlib
 

@@ -6,14 +6,12 @@ Simulating rectangular aperture for our lab setup.
 
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib import ticker
 import click
 
 from waveprop.util import rect2d, sample_points, plot2d
-from waveprop.prop import (
+from waveprop.rs import (
     direct_integration,
     angular_spectrum,
-    angular_spectrum_ffs,
 )
 from waveprop.fresnel import fresnel_prop_square_ap, shifted_fresnel
 from waveprop.fraunhofer import fraunhofer_prop_rect_ap
@@ -83,8 +81,8 @@ def prop(dz, wid, r_out, n_grid, grid_len, wv, di):
     # out_shift = d2 * N_out / 2
     d2 = d1
     out_shift = 0
-    u_out_ffs, x2_ffs, y2_ffs = angular_spectrum_ffs(
-        u_in, wv, d1, dz, N_out=N_out, d2=d2, out_shift=out_shift
+    u_out_ffs, x2_ffs, y2_ffs = angular_spectrum(
+        u_in, wv, d1, dz, N_out=N_out, d2=d2, out_shift=out_shift, pyffs=True
     )
 
     """ Shifted Fresnel """

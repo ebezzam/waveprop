@@ -30,7 +30,7 @@ def fraunhofer(u_in, wv, d1, dz):
     k = 2 * np.pi / wv
 
     # frequencies of propagating waves
-    fx, fy = sample_points(N=[Nx, Ny], delta=[(1 / Nx / d1[0]), (1 / Ny / d1[1])])
+    fx, fy = sample_points(N=[Ny, Nx], delta=[(1 / Ny / d1[0]), (1 / Nx / d1[1])])
 
     # output coordinates
     x2 = fx * wv * dz

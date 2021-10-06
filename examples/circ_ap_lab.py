@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from matplotlib import ticker
 
 from waveprop.util import circ, sample_points
-from waveprop.prop import (
+from waveprop.rs import (
     angular_spectrum,
     direct_integration,
 )

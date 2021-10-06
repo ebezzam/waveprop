@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.signal import fftconvolve
-from waveprop.util import ft2, ift2, jinc, sample_points
-from pyffs import ffsn_sample, ffsn, fs_interpn, ffsn_shift
+from waveprop.util import ft2, ift2, sample_points
+from pyffs import ffsn, fs_interpn, ffs_shift
 
 
 def free_space_impulse_response(k, x, y, z):
@@ -172,105 +172,9 @@ def fft_di(u_in, wv, d1, dz, N_out=None, use_simpson=True):
     return S[-Ny_out:, -Nx_out:], x2, y2
 
 
-def angular_spectrum_ffs(u_in, wv, d1, dz, d2=None, N_out=None, out_shift=0):
-    """
-    Can control output sampling like shifted Fresnel, but maybe only within period?
-
-    TODO: set data type
-
-    Exactness of Angular spectrum.
-
-    With Fresnel could go output of input region. Here limited by input region?
-    """
-
-    if isinstance(d1, float) or isinstance(d1, int):
-        d1 = [d1, d1]
-    assert len(d1) == 2
-    if d2 is None:
-        d2 = d1
-    if isinstance(d2, float) or isinstance(d2, int):
-        d2 = [d2, d2]
-    assert len(d2) == 2
-    Ny, Nx = u_in.shape
-    if N_out is None:
-        N_out = [Nx, Ny]
-    if isinstance(N_out, int):
-        N_out = [N_out, N_out]
-    assert len(N_out) == 2
-    assert [isinstance(val, int) for val in N_out]
-    if isinstance(out_shift, float) or isinstance(out_shift, int):
-        out_shift = [out_shift, out_shift]
-    assert len(out_shift) == 2
-
-    Ny, Nx = u_in.shape
-    Sx = Nx * d1[0]
-    Sy = Ny * d1[1]
-
-    # zero pad to simulate linear convolution
-    y_pad_edge = int(np.ceil(Ny / 2.0))
-    x_pad_edge = int(np.ceil(Nx / 2.0))
-    pad_width = ((y_pad_edge, y_pad_edge), (x_pad_edge, x_pad_edge))
-    u_in_pad = np.pad(u_in, pad_width=pad_width, mode="constant", constant_values=0)
-
-    # size of the padded field
-    Ny_pad, Nx_pad = u_in_pad.shape
-    Dy, Dx = (d1[1] * float(Ny_pad), d1[0] * float(Nx_pad))
-
-    # frequency coordinates sampling
-    dfX = 1.0 / Dx
-    dfY = 1.0 / Dy
-    # -- odd number of FS coefficients centered around zero
-    fX = np.arange(-Nx_pad / 2 + 1, Nx_pad / 2)[np.newaxis, :] * dfX
-    fY = np.arange(-Ny_pad / 2 + 1, Ny_pad / 2)[:, np.newaxis] * dfY
-    fsq = fX ** 2 + fY ** 2
-
-    # compute transfer function (Saleh / Sepand's notes but w/o abs val on distance)
-    k = 2 * np.pi / wv
-    wv_sq = wv ** 2
-    H = np.zeros((fY.shape[0], fX.shape[1]), dtype=complex)
-    prop_waves = fsq <= 1 / wv_sq
-    evanescent_waves = np.logical_not(prop_waves)
-    H[prop_waves] = np.exp(1j * k * dz * np.sqrt(1 - wv_sq * fsq[prop_waves]))
-    # evanescent waves
-    H[evanescent_waves] = np.exp(-k * dz * np.sqrt(wv_sq * fsq[evanescent_waves] - 1))
-
-    # band-limited to avoid aliasing
-    # - Eq 13 and 20 of Matsushima et al. (2009)
-    # - Table 1 of Matsushima (2010) for generalization to off-axis
-    u0, u_width, v0, v_width = bandpass(
-        Sx=Sx, Sy=Sy, x0=out_shift[0], y0=out_shift[1], z0=dz, wv=wv
-    )
-    fx_max = u_width / 2
-    fy_max = v_width / 2
-    H_filter = (np.abs(fX - u0) <= fx_max) * (np.abs(fY - v0) < fy_max)
-    H *= H_filter
-
-    # compute FS coefficients of input
-    # -- reshuffle input for pyFFS
-    T = [Dx, Dy]
-    T_c = [0, 0]
-    N_s = np.array(u_in_pad.shape)
-    N_FS = N_s // 2 * 2 - 1  # must be odd
-    u_in_pad_reorder = ffsn_shift(u_in_pad)
-
-    # -- compute coefficients
-    U1 = ffsn(u_in_pad_reorder, T, T_c, N_FS)[: N_FS[1], : N_FS[0]]
-
-    # convolution
-    U2 = H * U1
-
-    # output coordinates
-    x2, y2 = sample_points(N=N_out, delta=d2, shift=out_shift)
-
-    # use output FS coefficients to interpolate
-    a = [np.min(y2), np.min(x2)]
-    b = [np.max(y2), np.max(x2)]
-    u_out = fs_interpn(x_FS=U2, T=T, a=a, b=b, M=N_out)
-
-    return u_out, x2, y2
-
-
-def angular_spectrum(u_in, wv, d1, dz, bandlimit=True, out_shift=0, d2=None, N_out=None):
+def angular_spectrum(
+    u_in, wv, d1, dz, bandlimit=True, out_shift=0, d2=None, N_out=None, pyffs=False
+):
     """
     Band-Limited Angular Spectrum Method for Numerical Simulation of Free-Space Propagation in Far
     and Near Fields (2009)
@@ -322,20 +226,17 @@ def angular_spectrum(u_in, wv, d1, dz, bandlimit=True, out_shift=0, d2=None, N_o
     if isinstance(out_shift, float) or isinstance(out_shift, int):
         out_shift = [out_shift, out_shift]
     assert len(out_shift) == 2
-
-    Ny, Nx = u_in.shape
-    Sx = Nx * d1[0]
-    Sy = Ny * d1[1]
+    if d2 is None and N_out is None and pyffs:
+        print("Defaulting to standard BLAS as no need for pyFFS interpolation.")
+        pyffs = False
 
     # zero pad to simulate linear convolution
-    y_pad_edge = int(np.ceil(Ny / 2.0))
-    x_pad_edge = int(np.ceil(Nx / 2.0))
-    pad_width = ((y_pad_edge, y_pad_edge), (x_pad_edge, x_pad_edge))
-    u_in_pad = np.pad(u_in, pad_width=pad_width, mode="constant", constant_values=0)
+    Ny, Nx = u_in.shape
+    u_in_pad = _zero_pad(u_in)
 
     # size of the padded field
     Ny_pad, Nx_pad = u_in_pad.shape
-    Dy, Dx = (d1[1] * float(Ny_pad), d1[0] * float(Nx_pad))
+    Dy, Dx = (d1[0] * float(Ny_pad), d1[1] * float(Nx_pad))
 
     # frequency coordinates sampling
     dfX = 1.0 / Dx
@@ -347,7 +248,8 @@ def angular_spectrum(u_in, wv, d1, dz, bandlimit=True, out_shift=0, d2=None, N_o
     # compute transfer function (Saleh / Sepand's notes but w/o abs val on distance)
     k = 2 * np.pi / wv
     wv_sq = wv ** 2
-    H = np.zeros_like(u_in_pad).astype(complex)
+    # H = np.zeros_like(u_in_pad).astype(complex)
+    H = np.zeros((fY.shape[0], fX.shape[1]), dtype=np.complex64)
     prop_waves = fsq <= 1 / wv_sq
     evanescent_waves = np.logical_not(prop_waves)
     H[prop_waves] = np.exp(1j * k * dz * np.sqrt(1 - wv_sq * fsq[prop_waves]))
@@ -355,82 +257,122 @@ def angular_spectrum(u_in, wv, d1, dz, bandlimit=True, out_shift=0, d2=None, N_o
     H[evanescent_waves] = np.exp(-k * dz * np.sqrt(wv_sq * fsq[evanescent_waves] - 1))
 
     # shift
-    if out_shift[0] or out_shift[1]:
+    if (out_shift[0] or out_shift[1]) and not pyffs:
         # Eq 7 of Matsushima (2010)
-        H *= np.exp(1j * 2 * np.pi * (out_shift[0] * fX + out_shift[1] * fY))
+        H *= np.exp(1j * 2 * np.pi * (out_shift[1] * fX + out_shift[0] * fY))
 
     # band-limited to avoid aliasing
     # - Eq 13 and 20 of Matsushima et al. (2009)
     # - Table 1 of Matsushima (2010) for generalization to off-axis
     if bandlimit:
-        u0, u_width, v0, v_width = bandpass(
-            Sx=Sx, Sy=Sy, x0=out_shift[0], y0=out_shift[1], z0=dz, wv=wv
+        H = _bandpass(
+            H, fX, fY, Sx=Nx * d1[1], Sy=Ny * d1[0], x0=out_shift[1], y0=out_shift[0], z0=dz, wv=wv
         )
-        fx_max = u_width / 2
-        fy_max = v_width / 2
-        H_filter = (np.abs(fX - u0) <= fx_max) * (np.abs(fY - v0) < fy_max)
-        H *= H_filter
 
-    # perform convolution
-    U1 = ft2(u_in_pad, delta=d1)
-    U2 = H * U1
+    if d2 is None and N_out is None:
 
-    if d2 is None and N_out is not None:
+        # perform convolution
+        U1 = ft2(u_in_pad, delta=d1)
+        U2 = H * U1
 
         # output coordinates
-        x2, y2 = sample_points(N=[Nx, Ny], delta=d1, shift=out_shift)
+        x2, y2 = sample_points(N=[Ny, Nx], delta=d1, shift=out_shift)
 
         # back to spatial domain
-        u_out = ift2(U2, delta_f=[dfX, dfY])
+        u_out = ift2(U2, delta_f=[dfY, dfX])
 
         # remove padding
+        y_pad_edge = int(Ny // 2)
+        x_pad_edge = int(Nx // 2)
         u_out = u_out[
             y_pad_edge : y_pad_edge + Ny,
             x_pad_edge : x_pad_edge + Nx,
         ]
 
     else:
-        # rescaled BLAS
         if N_out is None:
-            N_out = [Nx, Ny]
+            N_out = [Ny, Nx]
         if d2 is None:
             d2 = d1
-
         # output coordinates
         x2, y2 = sample_points(N=N_out, delta=d2, shift=out_shift)
-        alpha_x = d2[0] / dfX
-        alpha_y = d2[1] / dfY
 
-        # Eq 9 of "Band-limited angular spectrum numerical propagation method with selective scaling
-        # of observation window size and sample number" (2012)
-        u_out = (
-            np.exp(1j * np.pi / alpha_x * x2 ** 2)
-            * d2[0]
-            * np.exp(1j * np.pi / alpha_y * y2 ** 2)
-            * d2[1]
-        )
-        fX_scaled = alpha_x * fX
-        fY_scaled = alpha_y * fY
-        B = (
-            U2
-            * (1 / alpha_x)
-            * (1 / alpha_y)
-            * np.exp(1j * np.pi / alpha_x * fX_scaled ** 2)
-            * np.exp(1j * np.pi / alpha_y * fY_scaled ** 2)
-        )
-        f = np.exp(-1j * np.pi / alpha_x * fX_scaled ** 2) * np.exp(
-            -1j * np.pi / alpha_y * fY_scaled ** 2
-        )
-        tmp = fftconvolve(B, f, mode="same")
-        u_out *= tmp[
-            int(Nx - N_out[0] / 2) : int(Nx + N_out[0] / 2),
-            int(Ny - N_out[1] / 2) : int(Ny + N_out[1] / 2),
-        ]
+        if pyffs:
+            # compute FS coefficients of input
+            # -- reshuffle input for pyFFS
+            T = [Dy, Dx]
+            T_c = [0, 0]
+            N_s = np.array(u_in_pad.shape)
+            N_FS = [ns if ns % 2 else ns // 2 * 2 - 1 for ns in N_s]  # must be odd
+            u_in_pad_reorder = ffs_shift(u_in_pad)
+
+            # -- compute coefficients
+            U1 = ffsn(u_in_pad_reorder, T, T_c, N_FS)[: N_FS[0], : N_FS[1]]
+            H = H[: N_FS[0], : N_FS[1]]
+
+            # convolution
+            U2 = H * U1
+
+            # output coordinates
+            # TODO: if d2 = d1, N_out=N_in revert to standard ASM
+            x2, y2 = sample_points(N=N_out, delta=d2, shift=out_shift)
+
+            # use output FS coefficients to interpolate
+            a = [np.min(y2), np.min(x2)]
+            b = [np.max(y2), np.max(x2)]
+            u_out = fs_interpn(x_FS=U2, T=T, a=a, b=b, M=N_out)
+
+        else:
+
+            # perform convolution
+            U1 = ft2(u_in_pad, delta=d1)
+            U2 = H * U1
+
+            # -- rescaled BLAS
+            alpha_x = d2[1] / dfX
+            alpha_y = d2[0] / dfY
+
+            # Eq 9 of "Band-limited angular spectrum numerical propagation method with selective scaling
+            # of observation window size and sample number" (2012)
+            u_out = (
+                np.exp(1j * np.pi / alpha_x * x2 ** 2)
+                * d2[1]
+                * np.exp(1j * np.pi / alpha_y * y2 ** 2)
+                * d2[0]
+            )
+            fX_scaled = alpha_x * fX
+            fY_scaled = alpha_y * fY
+            B = (
+                U2
+                * (1 / alpha_x)
+                * (1 / alpha_y)
+                * np.exp(1j * np.pi / alpha_x * fX_scaled ** 2)
+                * np.exp(1j * np.pi / alpha_y * fY_scaled ** 2)
+            )
+            f = np.exp(-1j * np.pi / alpha_x * fX_scaled ** 2) * np.exp(
+                -1j * np.pi / alpha_y * fY_scaled ** 2
+            )
+            tmp = fftconvolve(B, f, mode="same")
+            u_out *= tmp[
+                int(Ny - N_out[0] / 2) : int(Ny + N_out[0] / 2),
+                int(Nx - N_out[1] / 2) : int(Nx + N_out[1] / 2),
+            ]
 
     return u_out, x2, y2
 
 
-def bandpass(Sx, Sy, x0, y0, z0, wv):
+def _zero_pad(u_in):
+    Ny, Nx = u_in.shape
+    y_pad_edge = int(Ny // 2)
+    x_pad_edge = int(Nx // 2)
+    pad_width = (
+        (y_pad_edge + 1 if Ny % 2 else y_pad_edge, y_pad_edge),
+        (x_pad_edge + 1 if Nx % 2 else x_pad_edge, x_pad_edge),
+    )
+    return np.pad(u_in, pad_width=pad_width, mode="constant", constant_values=0)
+
+
+def _bandpass(H, fX, fY, Sx, Sy, x0, y0, z0, wv):
     """
     Table 1 of "Shifted angular spectrum method for off-axis numerical propagation" (2010).
 
@@ -467,4 +409,7 @@ def bandpass(Sx, Sy, x0, y0, z0, wv):
         v0 = (v_limit_p - v_limit_n) / 2
         v_width = v_limit_p + v_limit_n
 
-    return u0, u_width, v0, v_width
+    fx_max = u_width / 2
+    fy_max = v_width / 2
+    H_filter = (np.abs(fX - u0) <= fx_max) * (np.abs(fY - v0) < fy_max)
+    return H * H_filter
