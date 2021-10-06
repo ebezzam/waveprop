@@ -1,4 +1,5 @@
 import numpy as np
+import warnings
 from scipy.signal import fftconvolve
 from waveprop.util import ft2, ift2, sample_points
 from pyffs import ffsn, fs_interpn, ffs_shift
@@ -227,7 +228,7 @@ def angular_spectrum(
         out_shift = [out_shift, out_shift]
     assert len(out_shift) == 2
     if d2 is None and N_out is None and pyffs:
-        print("Defaulting to standard BLAS as no need for pyFFS interpolation.")
+        warnings.warn("Defaulting to standard BLAS as no need for pyFFS interpolation.")
         pyffs = False
 
     # zero pad to simulate linear convolution

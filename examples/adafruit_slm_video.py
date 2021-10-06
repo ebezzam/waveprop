@@ -22,8 +22,8 @@ slm_pixel_dim = [0.18e-3, 0.18e-3]
 # RPi HQ camera datasheet: https://www.arducam.com/sony/imx477/#imx477-datasheet
 rpi_dim = [3040, 4056]
 rpi_pixel_dim = [1.55e-6, 1.55e-6]
-dz_vals = np.linspace(2e-3, 1, num=50)
-plot_pause = 0.05
+dz_vals = np.arange(start=1, stop=11, step=1, dtype=int) * 1e-3
+plot_pause = 0.1
 wv = 635e-9  # TODO polychromatic
 
 # # random mask
@@ -86,6 +86,7 @@ plot2d(x1, y1, u_in, title="Aperture")
 
 # -- propagate with angular spectrum (pyFFS)
 _, ax = plt.subplots(ncols=3, figsize=(25, 5))
+dz_vals = np.around(dz_vals, decimals=3)
 for dz in dz_vals:
     u_out_asm_pyffs, x_asm_pyffs, y_asm_pyffs = angular_spectrum(
         u_in=u_in,
