@@ -262,10 +262,13 @@ def rect_tiling(N_in, N_out, L, n_tiles, prop_func):
         tiles.append(u_out)
 
     # combine tiles
+    myorder = [0, 3, 6, 1, 4, 7, 2, 5, 8]
+    tiles = [tiles[i] for i in myorder]
     u_out = np.array(tiles).reshape(n_tiles, n_tiles, N_in, N_in)
     u_out = np.transpose(u_out, axes=(0, 2, 1, 3))
     u_out = np.concatenate(u_out, axis=0)
     u_out = np.transpose(u_out, axes=(1, 2, 0))
     u_out = np.concatenate(u_out, axis=0).T
     x2, y2 = sample_points(N=N_out, delta=d2)
+
     return u_out, x2, y2
