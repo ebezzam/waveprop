@@ -9,11 +9,10 @@ TODO : check clipping and gamma correction code
 import progressbar
 import time
 import numpy as np
-from waveprop.util import sample_points, plot2d, rect2d
+from waveprop.util import sample_points, plot2d, rect2d, gamma_correction
 from waveprop.rs import angular_spectrum
 import matplotlib.pyplot as plt
 from waveprop.color import ColorSystem
-
 
 N = 256  # number of grid points per size
 L = 1e-2  # total size of grid
@@ -44,41 +43,25 @@ dz_vals = np.around(dz_vals, decimals=3)
 for dz in dz_vals:
     """loop over wavelengths for simulation"""
     # TODO : easily grow too large! Break into partitions??
-    u_out = np.zeros((u_in.shape[0] * u_in.shape[1], len(cs.wv)), dtype=np.float32)
+    u_out = np.zeros((len(cs.wv),) + u_in.shape, dtype=np.float32)
     bar = progressbar.ProgressBar()
     start_time = time.time()
     for i in bar(range(cs.n_wavelength)):
         # -- propagate with angular spectrum (pyFFS)
         u_out_wv, x2, y2 = angular_spectrum(
-            u_in=u_in,
-            wv=cs.wv[i],
-            d1=d1,
-            dz=dz,
-            pyffs=pyffs
-            # d2=d2,
-            # N_out=N_out
+            u_in=u_in * gain, wv=cs.wv[i], d1=d1, dz=dz, pyffs=pyffs
         )
         if plot_int:
-            intensity = np.real(u_out_wv * np.conjugate(u_out_wv))
+            res = np.real(u_out_wv * np.conjugate(u_out_wv))
         else:
-            intensity = np.abs(u_out_wv)
-        u_out[:, i] = intensity.reshape(-1)
-
-    # convert to XYZ
-    # Eq 1 of http://www.fourmilab.ch/documents/specrend/
-    xyz = u_out * cs.emit.T @ cs.cie_xyz * cs.d_wv * gain
+            res = np.abs(u_out_wv)
+        u_out[i] = res
 
     # convert to RGB
-    rgb = cs.xyz_to_srgb @ xyz.T
-
-    # clipping, add enough white to make all values positive
-    rgb_min = np.amin(rgb, axis=0)
-    rgb_max = np.amax(rgb, axis=0)
-    scaling = np.where(rgb_max > 0.0, rgb_max / (rgb_max - rgb_min + 0.00001), np.ones(rgb.shape))
-    rgb = np.where(rgb_min < 0.0, scaling * (rgb - rgb_min), rgb)
+    rgb = cs.to_rgb(u_out, clip=True)
 
     # gamma correction
-    rgb = cs.gamma_correction(rgb, gamma=2.4)
+    rgb = gamma_correction(rgb, gamma=2.4)
 
     # reshape back
     rgb = (rgb.T).reshape((u_in.shape[0], u_in.shape[1], 3))

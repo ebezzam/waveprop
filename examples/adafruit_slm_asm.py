@@ -7,8 +7,11 @@ Amplitude modulation
 """
 
 import numpy as np
-from waveprop.util import sample_points, plot2d, wavelength_to_rgb_vector
+import time
+import progressbar
+from waveprop.util import sample_points, plot2d, gamma_correction
 from waveprop.rs import angular_spectrum
+from waveprop.color import ColorSystem
 import matplotlib.pyplot as plt
 
 
@@ -22,8 +25,12 @@ slm_pixel_dim = [0.18e-3, 0.18e-3]
 rpi_dim = [3040, 4056]
 rpi_pixel_dim = [1.55e-6, 1.55e-6]
 dz = 5e-3
-plot_pause = 0.1
-wv_vals = np.linspace(380, 780, num=180) * 1e-9  # TODO polychromatic
+
+# polychromatic
+plot_int = False
+gain = 1e9
+n_wavelength = 100
+cs = ColorSystem(n_wavelength)
 
 """ create gray scale mask """
 # output region
@@ -78,23 +85,33 @@ x1, y1 = sample_points(N=overlapping_mask_pixels, delta=slm_pixel_dim)
 plot2d(x1, y1, u_in, title="Aperture")
 
 """ loop over wavelengths for simulation """
-u_out = np.zeros(u_in.shape + (3,), dtype=np.complex64)
-for wv in wv_vals:
+u_out = np.zeros((len(cs.wv),) + u_in.shape, dtype=np.float32)
+bar = progressbar.ProgressBar()
+start_time = time.time()
+
+for i in bar(range(cs.n_wavelength)):
     # -- propagate with angular spectrum (pyFFS)
     u_out_wv, x2, y2 = angular_spectrum(
-        u_in=u_in,
-        wv=wv,
-        d1=slm_pixel_dim,
-        dz=dz,
-        pyffs=True
-        # d2=d2,
-        # N_out=N_out
+        u_in=u_in * gain, wv=cs.wv[i], d1=slm_pixel_dim, dz=dz, pyffs=True
     )
-    rgb_vec = wavelength_to_rgb_vector(wv * 1e9)
-    u_out += u_out_wv[:, :, np.newaxis] @ rgb_vec[np.newaxis, :]
+    if plot_int:
+        res = np.real(u_out_wv * np.conjugate(u_out_wv))
+    else:
+        res = np.abs(u_out_wv)
+    u_out[i] = res
 
-u_out /= np.abs(u_out).max()
+# convert to RGB
+rgb = cs.to_rgb(u_out, clip=True)
 
-plot2d(x2, y2, np.abs(u_out), title="pyFFS BLAS {} m".format(dz))
+# gamma correction
+rgb = gamma_correction(rgb, gamma=2.4)
+
+# reshape back
+rgb = (rgb.T).reshape((u_in.shape[0], u_in.shape[1], 3))
+
+print(f"Computation time: {time.time() - start_time}")
+
+# plot
+plot2d(x2, y2, np.abs(rgb), title="BLAS {} m".format(dz))
 
 plt.show()

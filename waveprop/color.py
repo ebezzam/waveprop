@@ -38,11 +38,11 @@ class ColorSystem:
 
         if n_wavelength == len(lookup_wavelength):
             self.wv = lookup_wavelength
-            self.cie_xyz = cmf[:, 1:]
+            self.cie_xyz = cmf[:, 1:].T
         else:
             self.wv = np.linspace(start=min_wv, stop=max_wv, num=n_wavelength)
             f = interpolate.interp1d(lookup_wavelength, cmf[:, 1:], axis=0, kind="linear")
-            self.cie_xyz = f(self.wv)
+            self.cie_xyz = f(self.wv).T
 
         self.d_wv = self.wv[1] - self.wv[0]
 
@@ -69,40 +69,43 @@ class ColorSystem:
             ]
         )
 
-    def gamma_correction(self, vals, gamma=2.2):
+    def to_rgb(self, vals, clip=True):
         """
-        Tutorials
-        - https://www.cambridgeincolour.com/tutorials/gamma-correction.htm
-        - (code, for images) https://www.pyimagesearch.com/2015/10/05/opencv-gamma-correction/
-            https://lindevs.com/apply-gamma-correction-to-an-image-using-opencv/
-        - (code) http://www.fourmilab.ch/documents/specrend/specrend.c
+
+        TODO : flatten inside here
 
         Parameters
         ----------
         vals : array_like
-            RGB values to gamma correct.
+            (Ny, Nx, n_wavelength) Array of spectrum data at multiple wavelengths.
+
 
         Returns
         -------
 
         """
+        assert len(vals.shape) == 3
+        assert vals.shape[0] == self.n_wavelength
 
-        # simple approach
-        # return np.power(vals, 1 / gamma)
+        # flatten
+        flattened = vals.reshape((self.n_wavelength, -1))
 
-        # Rec. 709 gamma correction
-        # http://www.fourmilab.ch/documents/specrend/specrend.c
-        cc = 0.018
-        inv_gam = 1 / gamma
-        clip_val = (1.099 * np.power(cc, inv_gam) - 0.099) / cc
-        return np.where(vals < cc, vals * clip_val, 1.099 * np.power(vals, inv_gam) - 0.099)
+        # convert to XYZ
+        # Eq 1 of http://www.fourmilab.ch/documents/specrend/
+        xyz = self.cie_xyz @ (flattened * self.emit) * self.d_wv
 
-        ## source: https://github.com/rafael-fuente/Diffraction-Simulations--Angular-Spectrum-Method/blob/5e82083831acb5729550360c5295447dddb77ca5/diffractsim/colour_functions.py#L93
-        # vals = np.where(
-        #     vals <= 0.00304,
-        #     12.92 * vals,
-        #     1.055 * np.power(vals, 1.0 / 2.4) - 0.055,
-        # )
-        # rgb_max = np.amax(vals, axis=0) + 0.00001  # avoid division by zero
-        # intensity_cutoff = 1.0
-        # return np.where(rgb_max > intensity_cutoff, vals * intensity_cutoff / (rgb_max), vals)
+        # convert to RGB
+        rgb = self.xyz_to_srgb @ xyz
+
+        if clip:
+            # clipping, add enough white to make all values positive
+            # -- http://www.fourmilab.ch/documents/specrend/specrend.c, constrain_rgb
+            # -- https://github.com/rafael-fuente/Diffraction-Simulations--Angular-Spectrum-Method/blob/5e82083831acb5729550360c5295447dddb77ca5/diffractsim/colour_functions.py#L78
+            rgb_min = np.amin(rgb, axis=0)
+            rgb_max = np.amax(rgb, axis=0)
+            scaling = np.where(
+                rgb_max > 0.0, rgb_max / (rgb_max - rgb_min + 0.00001), np.ones(rgb.shape)
+            )
+            rgb = np.where(rgb_min < 0.0, scaling * (rgb - rgb_min), rgb)
+
+        return rgb

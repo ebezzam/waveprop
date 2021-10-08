@@ -4,6 +4,7 @@ Scripts and functions to simulate free-space optical propagation.
 
 In the `examples` folder:
 - `square_ap_video.py`: to compare various propagation approaches while varying the distance.
+- `square_ap_poly_video.py`: polychromatic simulation of square aperture while varying the distance.
 - `circ_ap_fraunhofer.py`: simulate circular aperture in the Fraunhofer regime.
 - `square_ap_fresnel.py`: simulate square aperture in the Fresnel regime.
 - `bandlimiting_angular_spectrum.py`: show benefit of band-limiting angular spectrum method.

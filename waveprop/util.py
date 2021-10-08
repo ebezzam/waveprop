@@ -283,3 +283,42 @@ def rect_tiling(N_in, N_out, L, n_tiles, prop_func):
     x2, y2 = sample_points(N=N_out, delta=d2)
 
     return u_out, x2, y2
+
+
+def gamma_correction(vals, gamma=2.2):
+    """
+    Tutorials
+    - https://www.cambridgeincolour.com/tutorials/gamma-correction.htm
+    - (code, for images) https://www.pyimagesearch.com/2015/10/05/opencv-gamma-correction/
+        https://lindevs.com/apply-gamma-correction-to-an-image-using-opencv/
+    - (code) http://www.fourmilab.ch/documents/specrend/specrend.c
+
+    Parameters
+    ----------
+    vals : array_like
+        RGB values to gamma correct.
+
+    Returns
+    -------
+
+    """
+
+    # simple approach
+    # return np.power(vals, 1 / gamma)
+
+    # Rec. 709 gamma correction
+    # http://www.fourmilab.ch/documents/specrend/specrend.c
+    cc = 0.018
+    inv_gam = 1 / gamma
+    clip_val = (1.099 * np.power(cc, inv_gam) - 0.099) / cc
+    return np.where(vals < cc, vals * clip_val, 1.099 * np.power(vals, inv_gam) - 0.099)
+
+    ## source: https://github.com/rafael-fuente/Diffraction-Simulations--Angular-Spectrum-Method/blob/5e82083831acb5729550360c5295447dddb77ca5/diffractsim/colour_functions.py#L93
+    # vals = np.where(
+    #     vals <= 0.00304,
+    #     12.92 * vals,
+    #     1.055 * np.power(vals, 1.0 / 2.4) - 0.055,
+    # )
+    # rgb_max = np.amax(vals, axis=0) + 0.00001  # avoid division by zero
+    # intensity_cutoff = 1.0
+    # return np.where(rgb_max > intensity_cutoff, vals * intensity_cutoff / (rgb_max), vals)
