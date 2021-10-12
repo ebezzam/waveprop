@@ -174,7 +174,7 @@ def fft_di(u_in, wv, d1, dz, N_out=None, use_simpson=True):
 
 
 def angular_spectrum(
-    u_in, wv, d1, dz, bandlimit=True, out_shift=0, d2=None, N_out=None, pyffs=False
+    u_in, wv, d1, dz, bandlimit=True, out_shift=0, d2=None, N_out=None, pyffs=False, in_shift=None
 ):
     """
     Band-Limited Angular Spectrum Method for Numerical Simulation of Free-Space Propagation in Far
@@ -231,6 +231,13 @@ def angular_spectrum(
         warnings.warn("Defaulting to standard BLAS as no need for pyFFS interpolation.")
         pyffs = False
 
+    # TODO : check to support multiple input shifts which get added
+    # TODO : implement for when d2 and N_out are not None
+
+    # if isinstance(in_shift, float) or isinstance(in_shift, int):
+    #     in_shift = [in_shift, in_shift]
+    # assert len(in_shift) == 2
+
     # zero pad to simulate linear convolution
     Ny, Nx = u_in.shape
     u_in_pad = _zero_pad(u_in)
@@ -274,6 +281,16 @@ def angular_spectrum(
 
         # perform convolution
         U1 = ft2(u_in_pad, delta=d1)
+        if in_shift is not None:
+            shift_terms = np.zeros_like(U1)
+            for shift in in_shift:
+                _shift = np.ones_like(U1)
+                if shift[0]:
+                    _shift *= np.exp(-1j * 2 * np.pi * fY * shift[0])
+                if shift[1]:
+                    _shift *= np.exp(-1j * 2 * np.pi * fX * shift[1])
+                shift_terms += _shift
+            U1 *= shift_terms
         U2 = H * U1
 
         # output coordinates

@@ -94,7 +94,7 @@ def circ(x, y, diam):
     return z
 
 
-def rect(x, D):
+def rect(x, D, offset=0):
     """
     Sample 1D rectangular function.
 
@@ -109,13 +109,13 @@ def rect(x, D):
         Width of rectangular function.
 
     """
-    x = np.abs(x)
+    x = np.abs(x - offset)
     y = (x < D / 2).astype(float)
     y[x == D / 2] = 0.5
     return y
 
 
-def rect2d(x, y, D):
+def rect2d(x, y, D, offset=0):
     """
     Sample 2D rectangular function.
 
@@ -130,7 +130,10 @@ def rect2d(x, y, D):
     if isinstance(D, float) or isinstance(D, int):
         D = [D, D]
     assert len(D) == 2
-    return rect(x, D[1]) * rect(y, D[0])
+    if isinstance(offset, float) or isinstance(offset, int):
+        offset = [offset, offset]
+    assert len(offset) == 2
+    return rect(x, D[1], offset[1]) * rect(y, D[0], offset[0])
 
 
 def jinc(x):

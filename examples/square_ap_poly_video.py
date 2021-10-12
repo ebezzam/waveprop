@@ -27,6 +27,13 @@ dz_vals = (
     + list(np.arange(start=1, stop=10, step=1) * 1e-1)
     + list(np.arange(start=1, stop=11, step=1, dtype=int))
 )
+
+
+# diam = 1.55e-6 * 3040 * 0.6  # diameter of aperture [m]
+# L = 10 * diam  # total size of grid
+# print(diam)
+# dz_vals = [0.01]
+
 d1 = L / N  # source-plane grid spacing
 
 """ prepare color system """
