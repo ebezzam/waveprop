@@ -283,20 +283,23 @@ def angular_spectrum(
         U1 = ft2(u_in_pad, delta=d1)
         if in_shift is not None:
             shift_terms = np.zeros_like(U1)
-            y_mod = np.exp(-1j * 2 * np.pi * fY @ in_shift[:, 0][np.newaxis, :])
-            x_mod = np.exp(-1j * 2 * np.pi * in_shift[:, 1][:, np.newaxis] @ fX)
-            for i in range(len(in_shift)):
-                shift_terms += y_mod[:, i][:, np.newaxis] @ x_mod[i, :][np.newaxis, :]
+
+            # y_mod = np.exp(-1j * 2 * np.pi * fY @ in_shift[:, 0][np.newaxis, :])
+            # x_mod = np.exp(-1j * 2 * np.pi * in_shift[:, 1][:, np.newaxis] @ fX)
+            # for i in range(len(in_shift)):
+            #     shift_terms += y_mod[:, i][:, np.newaxis] @ x_mod[i, :][np.newaxis, :]
 
             # import pudb; pudb.set_trace()
-            #
-            # for shift in in_shift:
-            #     _shift = np.ones_like(U1)
-            #     if shift[0]:
-            #         _shift *= np.exp(-1j * 2 * np.pi * fY * shift[0])
-            #     if shift[1]:
-            #         _shift *= np.exp(-1j * 2 * np.pi * fX * shift[1])
-            #     shift_terms += _shift
+
+            ## -- this approach is faster, can be precomputed?
+            for shift in in_shift:
+                _shift = np.ones_like(U1)
+                if shift[0]:
+                    _shift *= np.exp(-1j * 2 * np.pi * fY * shift[0])
+                if shift[1]:
+                    _shift *= np.exp(-1j * 2 * np.pi * fX * shift[1])
+                shift_terms += _shift
+
             U1 *= shift_terms
         U2 = H * U1
 

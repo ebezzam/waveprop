@@ -6,6 +6,7 @@ Largely inspired by: https://github.com/rafael-fuente/Diffraction-Simulations--A
 import numpy as np
 from scipy import interpolate
 from pathlib import Path
+from .util import gamma_correction
 
 
 class ColorSystem:
@@ -69,7 +70,7 @@ class ColorSystem:
             ]
         )
 
-    def to_rgb(self, vals, clip=True):
+    def to_rgb(self, vals, clip=True, gamma=None):
         """
 
         TODO : flatten inside here
@@ -108,4 +109,8 @@ class ColorSystem:
             )
             rgb = np.where(rgb_min < 0.0, scaling * (rgb - rgb_min), rgb)
 
-        return rgb
+        if gamma:
+            rgb = gamma_correction(rgb, gamma=2.4)
+
+        # reshape back
+        return (rgb.T).reshape((vals.shape[1], vals.shape[2], 3))
