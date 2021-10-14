@@ -10,7 +10,7 @@ from .util import gamma_correction
 
 
 class ColorSystem:
-    def __init__(self, n_wavelength, color_mapping_txt=None, illumination_txt=None):
+    def __init__(self, n_wavelength=None, wv=None, color_mapping_txt=None, illumination_txt=None):
         """
         Color conversion class.
 
@@ -25,6 +25,10 @@ class ColorSystem:
         illumination_txt: str, optional
             Path to TXT file containing emittance for each wavelength.
         """
+        if n_wavelength is None:
+            assert wv is not None
+            wv = np.array(wv)
+            n_wavelength = len(wv)
         if color_mapping_txt is None:
             color_mapping_txt = Path(__file__).parent / "./lookup/cie-cmf.txt"
         if illumination_txt is None:
@@ -37,11 +41,14 @@ class ColorSystem:
         min_wv = min(lookup_wavelength)
         max_wv = max(lookup_wavelength)
 
-        if n_wavelength == len(lookup_wavelength):
+        if n_wavelength == len(lookup_wavelength) and wv is None:
             self.wv = lookup_wavelength
             self.cie_xyz = cmf[:, 1:].T
         else:
-            self.wv = np.linspace(start=min_wv, stop=max_wv, num=n_wavelength)
+            if wv is None:
+                self.wv = np.linspace(start=min_wv, stop=max_wv, num=n_wavelength)
+            else:
+                self.wv = wv
             f = interpolate.interp1d(lookup_wavelength, cmf[:, 1:], axis=0, kind="linear")
             self.cie_xyz = f(self.wv).T
 

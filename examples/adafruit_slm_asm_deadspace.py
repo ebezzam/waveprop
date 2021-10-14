@@ -34,8 +34,11 @@ sensor_crop_fraction = 0.5
 # polychromatic
 plot_int = False
 gain = 1e9
-n_wavelength = 10
-cs = ColorSystem(n_wavelength)
+# n_wavelength = 3
+wavelength = np.array([450e-9, 520e-9, 638e-9]) * 1e9     # wavelength of each color
+print(wavelength)
+cs = ColorSystem(wv=wavelength)
+print(cs.wv)
 
 # rough estimate of dead space between pixels
 dead_space_pix = get_deadspace(slm_size, slm_dim, slm_pixel_dim)
