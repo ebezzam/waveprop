@@ -174,7 +174,17 @@ def fft_di(u_in, wv, d1, dz, N_out=None, use_simpson=True):
 
 
 def angular_spectrum(
-    u_in, wv, d1, dz, bandlimit=True, out_shift=0, d2=None, N_out=None, pyffs=False, in_shift=None
+    u_in,
+    wv,
+    d1,
+    dz,
+    bandlimit=True,
+    out_shift=0,
+    d2=None,
+    N_out=None,
+    pyffs=False,
+    in_shift=None,
+    weights=None,
 ):
     """
     Band-Limited Angular Spectrum Method for Numerical Simulation of Free-Space Propagation in Far
@@ -230,6 +240,11 @@ def angular_spectrum(
     if d2 is None and N_out is None and pyffs:
         warnings.warn("Defaulting to standard BLAS as no need for pyFFS interpolation.")
         pyffs = False
+    if in_shift is not None:
+        if weights is not None:
+            assert len(weights) == len(in_shift)
+        else:
+            weights = np.ones(len(in_shift))
 
     # TODO : check to support multiple input shifts which get added
     # TODO : implement for when d2 and N_out are not None
@@ -292,13 +307,13 @@ def angular_spectrum(
             # import pudb; pudb.set_trace()
 
             ## -- this approach is faster, can be precomputed?
-            for shift in in_shift:
+            for i, shift in enumerate(in_shift):
                 _shift = np.ones_like(U1)
                 if shift[0]:
                     _shift *= np.exp(-1j * 2 * np.pi * fY * shift[0])
                 if shift[1]:
                     _shift *= np.exp(-1j * 2 * np.pi * fX * shift[1])
-                shift_terms += _shift
+                shift_terms += _shift * weights[i]
 
             U1 *= shift_terms
         U2 = H * U1

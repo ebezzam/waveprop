@@ -40,7 +40,6 @@ def get_active_pixel_dim(
     # crop out a region
     # cropped_mask_size = sensor_dim * sensor_pixel_size * sensor_crop
     cropped_mask_size = overlapping_mask_size * sensor_crop
-    print(f"\nCropped region ({sensor_crop * 100}%): ", cropped_mask_size)
     n_active_slm_pixels = (cropped_mask_size + slm_pixel_dead_space) / slm_pixel_pitch
     n_active_slm_pixels = n_active_slm_pixels.astype(np.int)
 

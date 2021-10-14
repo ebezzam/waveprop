@@ -28,7 +28,7 @@ N = 128
 rpi_dim = [3040, 4056]
 rpi_pixel_dim = [1.55e-6, 1.55e-6]
 dz = 5e-3
-# dz = 1
+# dz = 1e-2
 sensor_crop_fraction = 0.5
 
 # polychromatic
@@ -53,13 +53,17 @@ overlapping_mask_size, n_active_slm_pixels = get_active_pixel_dim(
 print(overlapping_mask_size)
 print(n_active_slm_pixels)
 
+""" generate random mask """
+centers = get_centers(n_active_slm_pixels, pixel_pitch=pixel_pitch)
+mask = np.random.rand(*n_active_slm_pixels)
+mask_flat = mask.reshape(-1)
+
 """ discretize aperture (some SLM pixels will overlap due to coarse sampling) """
 d1 = np.array(overlapping_mask_size) / N
 x1, y1 = sample_points(N=N, delta=d1)
-centers = get_centers(n_active_slm_pixels, pixel_pitch=pixel_pitch)
 u_in = np.zeros((len(y1), x1.shape[1]))
-for _center in centers:
-    u_in += rect2d(x1, y1, slm_pixel_dim, offset=_center)
+for i, _center in enumerate(centers):
+    u_in += rect2d(x1, y1, slm_pixel_dim, offset=_center) * mask_flat[i]
 
 # plot input
 plot2d(x1.squeeze(), y1.squeeze(), u_in, title="Aperture")
@@ -71,11 +75,7 @@ bar = progressbar.ProgressBar()
 start_time = time.time()
 for i in bar(range(cs.n_wavelength)):
     u_out_wv, x2, y2 = angular_spectrum(
-        u_in=u_in_cent * gain,
-        wv=cs.wv[i],
-        d1=d1,
-        dz=dz,
-        in_shift=centers,
+        u_in=u_in_cent * gain, wv=cs.wv[i], d1=d1, dz=dz, in_shift=centers, weights=mask_flat
     )
 
     if plot_int:
