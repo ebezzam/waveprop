@@ -2,24 +2,26 @@ import numpy as np
 
 
 def get_active_pixel_dim(
-    sensor_dim, sensor_pixel_size, sensor_crop, slm_size, slm_dim, slm_pixel_size
+    sensor_dim, sensor_pixel_size, sensor_crop, slm_size, slm_dim, slm_pixel_size, deadspace
 ):
     """
     TODO add constraint on multiple of three for RGB pixel
 
     Parameters
     ----------
-    sensor_dim
-    sensor_pixel_size
-    sensor_crop
-    slm_size
-    slm_dim
-    slm_pixel_size
+    sensor_dim : dimension of camera in pixels
+    sensor_pixel_size : dimension of individual pixel on camera in meters
+    sensor_crop : fraction of sensor that is used
+    slm_size : dimension of SLM in meters
+    slm_dim : dimension of SLM in pixels
+    slm_pixel_size : dimension of individual SLM pixel in meters.
 
     Returns
     -------
 
     """
+    assert sensor_crop > 0
+    assert sensor_crop <= 1
 
     sensor_dim = np.array(sensor_dim)
     sensor_pixel_dim = np.array(sensor_pixel_size)
@@ -32,7 +34,7 @@ def get_active_pixel_dim(
     slm_pixel_pitch = slm_pixel_size + slm_pixel_dead_space
 
     # get overlapping pixels
-    overlapping_mask_dim = (sensor_size + slm_pixel_dead_space) / (slm_pixel_pitch)
+    overlapping_mask_dim = (sensor_size + slm_pixel_dead_space) / slm_pixel_pitch
     overlapping_mask_dim = np.ceil(overlapping_mask_dim).astype(np.int)
     # overlapping_mask_size = overlapping_mask_dim * slm_pixel_pitch
     overlapping_mask_size = overlapping_mask_dim * slm_pixel_size  # TODO why is this better?
@@ -43,7 +45,7 @@ def get_active_pixel_dim(
     n_active_slm_pixels = (cropped_mask_size + slm_pixel_dead_space) / slm_pixel_pitch
     n_active_slm_pixels = n_active_slm_pixels.astype(np.int)
 
-    return overlapping_mask_size, n_active_slm_pixels
+    return overlapping_mask_size, overlapping_mask_dim, n_active_slm_pixels
 
 
 def get_deadspace(slm_size, slm_dim, pixel_size):

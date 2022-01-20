@@ -43,14 +43,14 @@ class ColorSystem:
 
         if n_wavelength == len(lookup_wavelength) and wv is None:
             self.wv = lookup_wavelength
-            self.cie_xyz = cmf[:, 1:].T
+            self.cie_xyz = cmf[:, 1:]
         else:
             if wv is None:
                 self.wv = np.linspace(start=min_wv, stop=max_wv, num=n_wavelength)
             else:
                 self.wv = wv
             f = interpolate.interp1d(lookup_wavelength, cmf[:, 1:], axis=0, kind="linear")
-            self.cie_xyz = f(self.wv).T
+            self.cie_xyz = f(self.wv)
 
         self.d_wv = self.wv[1] - self.wv[0]
 
@@ -93,17 +93,10 @@ class ColorSystem:
 
         """
         assert len(vals.shape) == 3
-        assert vals.shape[0] == self.n_wavelength
+        assert vals.shape[2] == self.n_wavelength
 
-        # flatten
-        flattened = vals.reshape((self.n_wavelength, -1))
-
-        # convert to XYZ
-        # Eq 1 of http://www.fourmilab.ch/documents/specrend/
-        xyz = self.cie_xyz @ (flattened * self.emit) * self.d_wv
-
-        # convert to RGB
-        rgb = self.xyz_to_srgb @ xyz
+        xyz = vals.reshape(-1, self.n_wavelength) * self.emit.T @ self.cie_xyz * self.d_wv
+        rgb = self.xyz_to_srgb @ xyz.T
 
         if clip:
             # clipping, add enough white to make all values positive
@@ -120,4 +113,4 @@ class ColorSystem:
             rgb = gamma_correction(rgb, gamma=2.4)
 
         # reshape back
-        return (rgb.T).reshape((vals.shape[1], vals.shape[2], 3))
+        return (rgb.T).reshape((vals.shape[0], vals.shape[1], 3))
