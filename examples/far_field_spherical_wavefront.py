@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import torch
 from torchvision import datasets, transforms
 from waveprop.util import sample_points, plot2d
 import numpy as np
@@ -71,14 +72,12 @@ print("size of dataset", len(ds))
 input_image = ds[idx][0].squeeze()
 print("label : ", ds[idx][1])
 print("shape : ", input_image.shape)
-
-input_image = input_image.to(device=device)
-input_image_np = input_image.detach().cpu().numpy()
-print("input", input_image.dtype)
-
-# plot
 x1, y1 = sample_points(N=input_image.shape[:2], delta=d1)
 plot2d(x1.squeeze(), y1.squeeze(), input_image.cpu(), title="input")
+
+# simulate input field by adding random phase
+phase = torch.rand(input_image.shape) * 2 * np.pi
+input_image = torch.sqrt(input_image) * torch.exp(1j * phase)
 
 """ PyTorch """
 # propagate kernel
@@ -101,6 +100,11 @@ plot2d(
 )
 
 """ NumPy """
+# convert to numpy
+input_image = input_image.to(device=device)
+input_image_np = input_image.detach().cpu().numpy()
+print("input", input_image.dtype)
+
 # propagate kernel
 phase_shifts_np = spherical_prop(input_image_np, d1, wv, source_distance, return_psf=True)
 print("spherical psf (numpy)", phase_shifts_np.dtype)
