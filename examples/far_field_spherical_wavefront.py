@@ -11,11 +11,12 @@ from waveprop.dataset_util import FlickrDataset, CIFAR10Dataset
 target_dim = [3040, 4056]  # RPi sensor
 d1 = 1.55e-6  # RPi sensor
 downsample_factor = 16
-idx = 100
+idx = 50
 source_distance = 3  # [m]
 wv = 640e-9  # red wavelength
 device = "cuda"  # "cpu" or "cuda"
-dataset = "CIFAR"
+dataset = "FLICKR"
+random_input_phase = True
 
 # downsample
 target_dim = [target_dim[0] // downsample_factor, target_dim[1] // downsample_factor]
@@ -28,7 +29,7 @@ if dataset == "MNIST":
     transform = transforms.Compose(
         [
             transforms.ToTensor(),
-            transforms.Normalize((0.1307,), (0.3081,)),
+            # transforms.Normalize((0.1307,), (0.3081,)),
             transforms.RandomVerticalFlip(p=1.0),
             transforms.RandomResizedCrop(target_dim, ratio=(1, 1), scale=(0.5, 1.0)),
         ]
@@ -76,8 +77,11 @@ x1, y1 = sample_points(N=input_image.shape[:2], delta=d1)
 plot2d(x1.squeeze(), y1.squeeze(), input_image.cpu(), title="input")
 
 # simulate input field by adding random phase
-phase = torch.rand(input_image.shape) * 2 * np.pi
-input_image = torch.sqrt(input_image) * torch.exp(1j * phase)
+input_image = torch.sqrt(input_image)
+if random_input_phase:
+    phase = torch.exp(1j * torch.rand(input_image.shape) * 2 * np.pi)
+    input_image = input_image * phase
+
 
 """ PyTorch """
 # propagate kernel
