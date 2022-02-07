@@ -3,6 +3,8 @@
 Scripts and functions to simulate free-space optical propagation. 
 
 In the `examples` folder:
+- `adafruit_slm.py`: polychromatric simulation of amplitude SLM with or without deadspace.
+- `adafruit_slm_mono_pytorch.py`: monochromatric simulation of amplitude SLM with PyTorch support.
 - `square_ap_video.py`: to compare various propagation approaches while varying the distance.
 - `square_ap_poly_video.py`: polychromatic simulation of square aperture while varying the distance.
 - `circ_ap_fraunhofer.py`: simulate circular aperture in the Fraunhofer regime.
@@ -12,7 +14,6 @@ In the `examples` folder:
 - `rescale.py`: comparing off-axis, rescaled simulation with Fresnel and angular spectrum.
 - `circ_ap_lab.py`: simulate circular aperture with command-line defined arguments. Default is our lab setup.
 - `rect_ap_lab.py`: simulate rectangular aperture with command-line defined arguments. Default is our lab setup.
-- `adafruit_slm.py`: polychromatric simulation of amplitude SLM with or without deadspace.
 - `single_slit_lab.py` (WIP): simulate single-slit with command-line defined arguments. Default is our lab setup.
 
 NB: `click` is required for some scripts for parsing command-line arguments.
