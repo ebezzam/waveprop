@@ -5,7 +5,6 @@ TODO : check clipping and gamma correction code
 
 """
 
-
 import progressbar
 import time
 import numpy as np
@@ -22,6 +21,7 @@ gain = 1e9
 plot_int = False  # or amplitude
 pyffs = False  # doesn't make a difference if same input/output resolution
 n_wavelength = 10
+gamma = 2.4
 dz = 5e-2
 pixel_grid = [23, 9]
 # pixel_grid = [3, 3]
@@ -45,7 +45,7 @@ plot2d(x1.squeeze(), y1.squeeze(), u_in, title="Aperture")
 
 """ shift same aperture in the frequency domain """
 u_in_cent = rect2d(x1, y1, diam)
-u_out = np.zeros((len(cs.wv),) + u_in.shape, dtype=np.float32)
+u_out = np.zeros((u_in.shape[0], u_in.shape[1], len(cs.wv)), dtype=np.float32)
 bar = progressbar.ProgressBar()
 start_time = time.time()
 for i in bar(range(cs.n_wavelength)):
@@ -62,16 +62,10 @@ for i in bar(range(cs.n_wavelength)):
         res = np.real(u_out_wv * np.conjugate(u_out_wv))
     else:
         res = np.abs(u_out_wv)
-    u_out[i] = res
+    u_out[:, :, i] = res
 
 # convert to RGB
-rgb = cs.to_rgb(u_out, clip=True)
-
-# gamma correction
-rgb = gamma_correction(rgb, gamma=2.4)
-
-# reshape back
-u_out_four = (rgb.T).reshape((u_in.shape[0], u_in.shape[1], 3))
+u_out_four = cs.to_rgb(u_out, clip=True, gamma=gamma)
 
 print(f"Computation time: {time.time() - start_time}")
 

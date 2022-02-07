@@ -1,5 +1,6 @@
 import numpy as np
 from numpy.fft import fftshift, fft2, ifftshift, ifft2
+import torch
 from scipy.special import j1
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
@@ -22,7 +23,19 @@ def ft2(g, delta):
     if isinstance(delta, float) or isinstance(delta, int):
         delta = [delta, delta]
     assert len(delta) == 2
-    return fftshift(fft2(fftshift(g))) * delta[0] * delta[1]
+    fact = delta[0] * delta[1]
+    if torch.is_tensor(g):
+        return torch.fft.fftshift(
+            torch.fft.fft2(
+                # TODO ifftshift of fftshift?
+                torch.fft.fftshift(g * fact)
+            )
+        )
+    else:
+        res = fftshift(fft2(fftshift(g))) * fact
+        if g.dtype == np.float32 or g.dtype == np.complex64:
+            res = res.astype(np.complex64)
+        return res
 
 
 def ift2(G, delta_f):
@@ -42,10 +55,25 @@ def ift2(G, delta_f):
     if isinstance(delta_f, float) or isinstance(delta_f, int):
         delta_f = [delta_f, delta_f]
     assert len(delta_f) == 2
-    return ifftshift(ifft2(ifftshift(G))) * G.shape[0] * G.shape[1] * delta_f[0] * delta_f[1]
+    fact = G.shape[0] * G.shape[1] * delta_f[0] * delta_f[1]
+    # fact = 1   # TODO : huge difference when we don't apply factor
+    if torch.is_tensor(G):
+        # fact = pt.tensor([fact], dtype=G.dtype)
+        return torch.fft.ifftshift(
+            torch.fft.ifft2(
+                # TODO ifftshift of fftshift?
+                torch.fft.ifftshift(G * fact)
+            )
+        )
+        # * G.shape[0] * G.shape[1] * delta_f[0] * delta_f[1]
+    else:
+        res = ifftshift(ifft2(ifftshift(G * fact)))
+        if G.dtype == np.complex64:
+            res = res.astype(np.complex64)
+        return res
 
 
-def sample_points(N, delta, shift=0):
+def sample_points(N, delta, shift=0, pytorch=False):
     """
     Return sample points in 2D.
 
@@ -67,8 +95,16 @@ def sample_points(N, delta, shift=0):
     if isinstance(shift, float) or isinstance(shift, int):
         shift = [shift, shift]
     assert len(shift) == 2
-    x = np.arange(-N[1] / 2, N[1] / 2)[np.newaxis, :] * delta[1] + shift[1]
-    y = np.arange(-N[0] / 2, N[0] / 2)[:, np.newaxis] * delta[0] + shift[0]
+    if pytorch:
+        delta = torch.tensor(delta)
+        shift = torch.tensor(shift)
+        x = torch.arange(-N[1] / 2, N[1] / 2) * delta[1] + shift[1]
+        x = torch.unsqueeze(x, 0)
+        y = torch.arange(-N[0] / 2, N[0] / 2) * delta[0] + shift[0]
+        y = torch.unsqueeze(y, 1)
+    else:
+        x = np.arange(-N[1] / 2, N[1] / 2)[np.newaxis, :] * delta[1] + shift[1]
+        y = np.arange(-N[0] / 2, N[0] / 2)[:, np.newaxis] * delta[0] + shift[0]
     return x, y
 
 

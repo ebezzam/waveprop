@@ -7,6 +7,37 @@ import numpy as np
 from scipy import interpolate
 from pathlib import Path
 from .util import gamma_correction
+import torch
+
+
+def rgb2gray(rgb, weights=None):
+    """
+    Convert RGB array to grayscale.
+
+    Parameters
+    ----------
+    rgb : :py:class:`~numpy.ndarray`
+        (N_height, N_width, N_channel) image.
+    weights : :py:class:`~numpy.ndarray`
+        [Optional] (3,) weights to convert from RGB to grayscale.
+
+    Returns
+    -------
+    img :py:class:`~numpy.ndarray`
+        Grayscale image of dimension (height, width).
+
+    """
+    if weights is None:
+        weights = np.array([0.299, 0.587, 0.144])
+    if torch.is_tensor(rgb):
+        if not torch.is_tensor(rgb):
+            weights = torch.tensor(weights).to(rgb)
+        return torch.tensordot(rgb, torch.tensor(weights).to(rgb))
+    else:
+        if weights is None:
+            weights = np.array([0.299, 0.587, 0.144])
+        assert len(weights) == 3
+        return np.tensordot(rgb, weights, axes=((2,), 0))
 
 
 class ColorSystem:

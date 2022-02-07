@@ -35,9 +35,8 @@ def get_active_pixel_dim(
 
     # get overlapping pixels
     overlapping_mask_dim = (sensor_size + slm_pixel_dead_space) / slm_pixel_pitch
-    overlapping_mask_dim = np.ceil(overlapping_mask_dim).astype(np.int)
-    # overlapping_mask_size = overlapping_mask_dim * slm_pixel_pitch
-    overlapping_mask_size = overlapping_mask_dim * slm_pixel_size  # TODO why is this better?
+    overlapping_mask_dim = overlapping_mask_dim.astype(np.int)
+    overlapping_mask_size = overlapping_mask_dim * slm_pixel_pitch
 
     # crop out a region
     # cropped_mask_size = sensor_dim * sensor_pixel_size * sensor_crop
