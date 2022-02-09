@@ -24,9 +24,12 @@ def spherical_prop(u_in, d1=None, wv=None, dz=None, return_psf=False, psf=None, 
 
     Returns
     -------
+    n_wv x n_x x n_y
 
     """
 
+    if isinstance(wv, float):
+        wv = np.array([wv])
     if torch.is_tensor(u_in):
         is_torch = True
     else:
@@ -39,19 +42,18 @@ def spherical_prop(u_in, d1=None, wv=None, dz=None, return_psf=False, psf=None, 
         assert d1 is not None
         assert wv is not None
         assert dz is not None
+        assert len(u_in.shape) == 3
 
-        x1, y1 = sample_points(N=u_in.shape[:2], delta=d1)
-        k = 2 * math.pi / wv
-        curvature = np.sqrt(x1 ** 2 + y1 ** 2 + dz ** 2)
+        x1, y1 = sample_points(N=u_in.shape[1:], delta=d1)
+        k = (2 * math.pi / wv)[:, np.newaxis, np.newaxis]
+        curvature = np.sqrt(x1 ** 2 + y1 ** 2 + dz ** 2)[np.newaxis, :]
         psf = np.exp(1j * k * curvature).astype(ctype_np)
-        # if intensity:
-        #     psf = np.abs(psf) ** 2
         if is_torch:
             psf = torch.tensor(psf, dtype=ctype, device=u_in.device)
 
     if return_psf:
         return psf
     if is_torch:
-        return fftconvolve_torch(u_in, psf)
+        return fftconvolve_torch(u_in, psf, axes=(-2, -1))
     else:
-        return fftconvolve(u_in, psf, mode="same")
+        return fftconvolve(u_in, psf, mode="same", axes=(-2, -1))

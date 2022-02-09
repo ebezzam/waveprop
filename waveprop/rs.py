@@ -442,6 +442,7 @@ def angular_spectrum(
     N_out=None,
     pyffs=False,
     aperture=None,
+    aperture_ft=None,
     in_shift=None,
     weights=None,
     dtype=None,
@@ -507,16 +508,10 @@ def angular_spectrum(
     if in_shift is not None:
         assert weights is not None
         # if shifting u_in aperture as for an SLM
-        # if weights is not None:
         # TODO distinguish between amplitude and phase weights
         assert len(weights) == len(in_shift)
         if torch.is_tensor(weights):
             is_torch = True
-        # else:
-        #     if is_torch:
-        #         weights = torch.ones(len(in_shift))
-        #     else:
-        #         weights = np.ones(len(in_shift))
     if is_torch:
         assert device is not None, "Set device for PyTorch"
         if torch.is_tensor(u_in):
@@ -566,25 +561,30 @@ def angular_spectrum(
             #         U1 = U1.astype(ctype_np)
 
             if in_shift is not None:
-                # input field goes through SLM mask
+                # input field goes through SLM mask, take into account deadspace
                 # TODO : precompute shift terms? would take a lot of memory...
-                if aperture is None:
+                if aperture is None and aperture_ft is None:
                     # use input field as aperture that we shift
                     AP = ft2(u_in_pad, delta=d1)
                 else:
                     # we have separate input field that we need to multiply with mask in time domain
-                    assert aperture.shape == u_in.shape
-                    aperture_pad = _zero_pad(aperture)
-                    AP = ft2(aperture_pad, delta=d1)
+                    if aperture_ft is None:
+                        assert aperture.shape == u_in.shape
+                        aperture_pad = _zero_pad(aperture)
+                        AP = ft2(aperture_pad, delta=d1)
+                    else:
+                        AP = aperture_ft
 
-                AP = AP.astype(ctype_np)
+                if aperture_ft is None:
+                    AP = AP.astype(ctype_np)
+                    if is_torch:
+                        AP = torch.tensor(AP, dtype=ctype).to(device)
+
+                # TODO: matrix-free, will `index_select` work for differentiation??
                 if is_torch:
-                    AP = torch.tensor(AP, dtype=ctype).to(device)
                     shift_terms = torch.zeros_like(AP)
                 else:
                     shift_terms = np.zeros_like(AP)
-
-                # TODO: matrix-free, will `index_select` work for differentiation??
                 for i, shift in enumerate(in_shift):
                     _shift = np.ones(AP.shape, dtype=ctype_np)
                     if shift[0]:
@@ -592,6 +592,7 @@ def angular_spectrum(
                     if shift[1]:
                         _shift *= np.exp(-1j * 2 * np.pi * fX * shift[1])
                     if is_torch:
+                        # TODO will overwriting _shift be a problem for backprop?
                         _shift = torch.tensor(_shift.astype(ctype_np), dtype=ctype).to(device)
 
                     if is_torch:

@@ -8,6 +8,7 @@ from scipy import interpolate
 from pathlib import Path
 from .util import gamma_correction
 import torch
+from torchvision.transforms.functional import rgb_to_grayscale
 
 
 def rgb2gray(rgb, weights=None):
@@ -30,14 +31,12 @@ def rgb2gray(rgb, weights=None):
     if weights is None:
         weights = np.array([0.299, 0.587, 0.144])
     if torch.is_tensor(rgb):
-        if not torch.is_tensor(rgb):
-            weights = torch.tensor(weights).to(rgb)
-        return torch.tensordot(rgb, torch.tensor(weights).to(rgb))
+        return rgb_to_grayscale(rgb)
     else:
         if weights is None:
             weights = np.array([0.299, 0.587, 0.144])
         assert len(weights) == 3
-        return np.tensordot(rgb, weights, axes=((2,), 0))
+        return np.tensordot(rgb, weights, axes=((0,), 0))
 
 
 class ColorSystem:

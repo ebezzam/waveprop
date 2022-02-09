@@ -214,9 +214,9 @@ def plot2d(x_vals, y_vals, Z, pcolormesh=False, colorbar=True, title="", ax=None
     if pcolormesh:
         cp = ax.pcolormesh(X, Y, Z, cmap=cm.gray)
     else:
-        if len(Z.shape) == 2:
+        if len(Z.shape) == 2 or Z.shape[0] == 1:
             cp = ax.imshow(
-                Z,
+                Z[0] if Z.shape[0] == 1 else Z,
                 extent=[
                     x_vals.min(),
                     x_vals.max(),
@@ -228,7 +228,7 @@ def plot2d(x_vals, y_vals, Z, pcolormesh=False, colorbar=True, title="", ax=None
             )
         else:
             cp = ax.imshow(
-                Z,
+                np.transpose(Z, (1, 2, 0)) if Z.shape[0] == 3 else Z,
                 extent=[
                     x_vals.min(),
                     x_vals.max(),

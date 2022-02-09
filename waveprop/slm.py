@@ -77,7 +77,7 @@ def get_deadspace(slm_size, slm_dim, pixel_size):
     return dead_space / (np.array(slm_dim) - 1)
 
 
-def get_centers(slm_dim, pixel_pitch):
+def get_centers(slm_dim, pixel_pitch, return_color_filter=False):
     """
     Return
 
@@ -100,4 +100,11 @@ def get_centers(slm_dim, pixel_pitch):
     centers_y -= np.mean(centers_y)
     centers_x = np.arange(slm_dim[1])[np.newaxis, :] * pixel_pitch[1]
     centers_x -= np.mean(centers_x)
-    return np.array(np.meshgrid(centers_y, centers_x)).T.reshape(-1, 2)
+    centers = np.array(np.meshgrid(centers_y, centers_x)).T.reshape(-1, 2)
+    if return_color_filter:
+        cf = np.zeros((3,) + tuple(slm_dim), dtype=np.float32)
+        for i in range(slm_dim[0]):
+            cf[i % 3, i] = 1
+        return centers, cf.reshape(3, -1)
+    else:
+        return centers

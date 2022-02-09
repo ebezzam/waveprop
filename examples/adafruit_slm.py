@@ -2,14 +2,14 @@
 
 Amplitude modulation
 
-# TODO give subpixel unique wavelength
+# TODO give subpixel unique wavelength, see `examples/incoherent_source_slm_poly.py`
 
 """
 
 import numpy as np
 import time
 import progressbar
-from waveprop.util import sample_points, plot2d, gamma_correction, rect2d
+from waveprop.util import sample_points, plot2d, rect2d
 from waveprop.rs import angular_spectrum
 from waveprop.color import ColorSystem
 from waveprop.slm import get_centers, get_deadspace, get_active_pixel_dim
@@ -117,6 +117,12 @@ for i in bar(range(cs.n_wavelength)):
 rgb = cs.to_rgb(u_out, clip=True, gamma=gamma)
 
 print(f"Computation time: {time.time() - start_time}")
+
+print("\n--out info")
+print("SHAPE : ", rgb.shape)
+print("DTYPE : ", rgb.dtype)
+print("MINIMUM : ", rgb.min())
+print("MAXIMUM : ", rgb.max())
 
 if deadspace:
     plot2d(x2, y2, rgb, title="BLAS {} m, superimposed Fourier".format(dz))

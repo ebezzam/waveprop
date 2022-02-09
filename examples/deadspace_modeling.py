@@ -8,7 +8,7 @@ TODO : check clipping and gamma correction code
 import progressbar
 import time
 import numpy as np
-from waveprop.util import sample_points, plot2d, rect2d, gamma_correction
+from waveprop.util import sample_points, plot2d, rect2d
 from waveprop.rs import angular_spectrum
 import matplotlib.pyplot as plt
 from waveprop.color import ColorSystem
@@ -36,6 +36,7 @@ cs = ColorSystem(n_wavelength)
 """ discretize aperture """
 x1, y1 = sample_points(N=N, delta=d1)
 centers = get_centers(pixel_grid, pixel_pitch=diam + dead_space)
+weights = np.random.rand(len(centers))
 u_in = np.zeros((len(y1), x1.shape[1]))
 for _center in centers:
     u_in += rect2d(x1, y1, diam, offset=_center)
@@ -56,6 +57,7 @@ for i in bar(range(cs.n_wavelength)):
         dz=dz,
         pyffs=pyffs,
         in_shift=centers,
+        weights=weights,
     )
 
     if plot_int:

@@ -6,6 +6,8 @@ Amplitude modulation
 
 """
 
+import os
+import imageio
 import numpy as np
 import time
 from waveprop.util import sample_points, plot2d, rect2d
@@ -28,6 +30,7 @@ dz_vals = (
 )
 plot_pause = 0.05
 d1 = L / N  # source-plane grid spacing
+build_gif = True
 
 """ discretize aperture """
 x1, y1 = sample_points(N=N, delta=d1)
@@ -42,6 +45,9 @@ fresnel_time = []
 fft_di_time = []
 _, ax = plt.subplots(ncols=5, figsize=(25, 5))
 dz_vals = np.around(dz_vals, decimals=3)
+if build_gif:
+    filenames = []
+    frames = []
 for dz in dz_vals:
     start_time = time.time()
     # apply Fraunhofer
@@ -98,6 +104,12 @@ for dz in dz_vals:
     plt.draw()
     plt.pause(plot_pause)
 
+    if build_gif:
+        filename = f"{dz}.png"
+        filenames.append(filename)
+        plt.savefig(filename)
+        frames.append(imageio.imread(filename))
+
 
 plt.figure()
 plt.plot(dz_vals, fraunhofer_time, label="Fraunhofer")
@@ -110,5 +122,10 @@ plt.xlabel("Distance [m]")
 plt.ylabel("Seconds")
 plt.xscale("log")
 plt.legend()
+
+if build_gif:
+    imageio.mimsave("square_ap.gif", frames, "GIF", duration=0.3)
+    for filename in set(filenames):
+        os.remove(filename)
 
 plt.show()
