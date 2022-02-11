@@ -6,7 +6,7 @@ from waveprop.util import sample_points, plot2d, rect2d, ft2
 from waveprop.rs import angular_spectrum, _zero_pad
 from waveprop.slm import get_centers, get_deadspace, get_active_pixel_dim
 import matplotlib.pyplot as plt
-from waveprop.dataset_util import FlickrDataset, CIFAR10Dataset, MNISTDataset
+from waveprop.dataset_util import load_dataset, Datasets
 from waveprop.spherical import spherical_prop
 import cv2
 import torch.nn.functional as F
@@ -19,13 +19,14 @@ idx = 50
 slm_dim = [128 * 3, 160]
 slm_pixel_dim = np.array([0.06e-3, 0.18e-3])  # RGB sub-pixel
 slm_size = [28.03e-3, 35.04e-3]
-downsample_factor = 8
+downsample_factor = 6
 deadspace = True  # TODO : not using freq approach as too slow
 pytorch = True
-dataset = "MNIST"
+dataset = Datasets.MNIST
 device = "cuda"  # "cpu" or "cuda"
-grayscale = True  # convert to grayscale at the end
+grayscale = False  # convert to grayscale at the end
 input_pad = 2  # fraction wrt to input image
+noise_std = 0.001
 
 # polychromatric
 wv = np.array([460, 550, 640]) * 1e-9  # restricted to these wavelengths when using RGB images
@@ -40,7 +41,7 @@ rpi_dim = [3040, 4056]
 rpi_pixel_dim = [1.55e-6, 1.55e-6]
 source_distance = 0.4  # [m]
 dz = 0.005  # mask to sensor
-sensor_crop_fraction = 0.85
+sensor_crop_fraction = 0.7
 
 if pytorch:
     dtype = torch.float32
@@ -76,29 +77,22 @@ print("Number of active SLM pixels :", n_active_slm_pixels)
 d1 = np.array(overlapping_mask_size) / N
 x1, y1 = sample_points(N=N, delta=d1)
 
-if dataset == "MNIST":
-    """MNIST - 60'000 examples of 28x28"""
-    ds = MNISTDataset(target_dim=target_dim, device=device, pad=input_pad, grayscale=False)
 
-elif dataset == "CIFAR":
-    """CIFAR10 - 50;000 examples of 32x32"""
-    ds = CIFAR10Dataset(target_dim=target_dim, device=device, pad=input_pad, grayscale=False)
+# load dataset
+ds = load_dataset(
+    dataset,
+    target_dim=target_dim,
+    device=device,
+    pad=input_pad,
+    grayscale=grayscale,
+    vflip=True,
+    # for Flickr8
+    root_dir="/home/bezzam/Documents/Datasets/Flickr8k/images",
+    captions_file="/home/bezzam/Documents/Datasets/Flickr8k/captions.txt",
+)
 
-elif dataset == "FLICKR":
-    """Flickr8k - varied, around 400x500"""
-    ds = FlickrDataset(
-        root_dir="/home/bezzam/Documents/Datasets/Flickr8k/images",
-        captions_file="/home/bezzam/Documents/Datasets/Flickr8k/captions.txt",
-        target_dim=target_dim,
-        device=device,
-        pad=input_pad,
-        grayscale=False,
-    )
-
-else:
-    raise ValueError("Not supported dataset...")
-
-input_image = ds[idx][0].squeeze()
+# get image
+input_image = ds[idx][0]
 print("\n-- Input image")
 print("label", ds[idx][1])
 if pytorch:
@@ -133,6 +127,7 @@ else:
 
 """ discretize aperture (some SLM pixels will overlap due to coarse sampling) """
 if deadspace:
+
     u_in = np.zeros((3, len(y1), x1.shape[1]), dtype=np.float32)
     mask = np.random.rand(*n_active_slm_pixels).astype(np.float32)
     mask_flat = mask.reshape(-1)
@@ -147,8 +142,14 @@ if deadspace:
         ap = rect2d(x1, y1, slm_pixel_dim, offset=_center).astype(np.float32)
         ap = np.tile(ap, (3, 1, 1)) * cf[:, i][:, np.newaxis, np.newaxis]
         if pytorch:
-            # TODO : is pytoroch autograd compatible with this??
-            u_in += torch.tensor(ap, dtype=dtype, device=device) * mask_flat[i]
+            # TODO : is pytorch autograd compatible with in-place?
+            # https://pytorch.org/docs/stable/notes/autograd.html#in-place-operations-with-autograd
+            # https://discuss.pytorch.org/t/what-is-in-place-operation/16244/15
+            index_tensor = torch.tensor([i], dtype=torch.int, device=device)
+            u_in += torch.tensor(ap, dtype=dtype, device=device) * torch.index_select(
+                mask_flat, 0, index_tensor
+            )
+            # u_in += torch.tensor(ap, dtype=dtype, device=device) * mask_flat[i]
         else:
             u_in += ap * mask_flat[i]
 
@@ -214,7 +215,7 @@ if deadspace:
 
 for i in bar(range(cs.n_wavelength)):
     if deadspace:
-        # shift same aperture in the frequency domain
+        # # shift same aperture in the frequency domain, not enough memory..
         # psf_wv, x2, y2 = angular_spectrum(
         #     u_in=spherical_wavefront[i],
         #     wv=cs.wv[i],
@@ -252,13 +253,27 @@ else:
     psfs_int = np.abs(psfs) ** 2
     plot2d(x1.squeeze(), y1.squeeze(), psfs_int, title=plot_title)
 
+print("\n--intensity PSF info")
+print("SHAPE : ", psfs_int.shape)
+print("DTYPE : ", psfs_int.dtype)
+print("MINIMUM : ", psfs_int.min().item())
+print("MAXIMUM : ", psfs_int.max().item())
+
 """ convolve with intensity PSF """
 if pytorch:
-    out = fftconvolve_torch(input_image, psfs_int, axes=(-2, -1))
+    out = fftconvolve_torch(input_image, psfs_int, axes=(-2, -1)) / (torch.numel(input_image) / 3)
     out = torch.clip(out, min=0)
 else:
-    out = fftconvolve(input_image, psfs_int, axes=(-2, -1), mode="same")
+    out = fftconvolve(input_image, psfs_int, axes=(-2, -1), mode="same") / (input_image.size / 3)
     out = np.clip(out, a_min=0, a_max=None)
+
+if noise_std:
+    # https://www.strollswithmydog.com/pi-hq-cam-sensor-performance/
+    black_level = 256.3 / 4095  # TODO: use as mean?
+    if pytorch:
+        out_noisy = out + torch.empty(out.shape).normal_(mean=black_level, std=noise_std).to(out)
+    else:
+        raise ValueError
 
 if grayscale:
     out = rgb2gray(out)

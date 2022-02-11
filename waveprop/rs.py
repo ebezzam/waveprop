@@ -591,13 +591,15 @@ def angular_spectrum(
                         _shift *= np.exp(-1j * 2 * np.pi * fY * shift[0])
                     if shift[1]:
                         _shift *= np.exp(-1j * 2 * np.pi * fX * shift[1])
-                    if is_torch:
-                        # TODO will overwriting _shift be a problem for backprop?
-                        _shift = torch.tensor(_shift.astype(ctype_np), dtype=ctype).to(device)
+                    # if is_torch:
+                    #     # TODO will overwriting _shift be a problem for backprop?
+                    #     _shift = torch.tensor(_shift.astype(ctype_np), dtype=ctype).to(device)
 
                     if is_torch:
                         index_tensor = torch.tensor([i], dtype=torch.int, device=device)
-                        shift_terms += _shift * torch.index_select(weights, 0, index_tensor)
+                        shift_terms += torch.tensor(_shift.astype(ctype_np), dtype=ctype).to(
+                            device
+                        ) * torch.index_select(weights, 0, index_tensor)
                     else:
                         shift_terms += _shift * weights[i]
 
