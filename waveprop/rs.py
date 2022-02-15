@@ -1,10 +1,9 @@
 import numpy as np
 import torch
-from torchvision.transforms.functional import crop
 from waveprop.pytorch_util import fftconvolve as fftconvolve_torch
 import warnings
 from scipy.signal import fftconvolve
-from waveprop.util import ft2, ift2, sample_points
+from waveprop.util import ft2, ift2, sample_points, crop
 from pyffs import ffsn, fs_interpn, ffs_shift
 
 
@@ -654,7 +653,7 @@ def angular_spectrum(
         u_out = ift2(U2, delta_f=[dfY, dfX])
 
         # remove padding
-        u_out = _crop(u_out, shape=(Ny, Nx), topleft=(int(Ny // 2), int(Nx // 2)))
+        u_out = crop(u_out, shape=(Ny, Nx), topleft=(int(Ny // 2), int(Nx // 2)))
 
         # output coordinates
         x2, y2 = sample_points(N=[Ny, Nx], delta=d1, shift=out_shift)
@@ -717,7 +716,7 @@ def angular_spectrum(
                     * np.exp(1j * np.pi / alpha_y * fY_scaled ** 2)
                 )
                 tmp = fftconvolve(B, f, mode="same")
-            u_out *= _crop(
+            u_out *= crop(
                 tmp, shape=N_out, topleft=(int(Ny - N_out[0] / 2), int(Nx - N_out[1] / 2))
             )
 
@@ -930,36 +929,6 @@ def _zero_pad(u_in):
             (x_pad_edge + 1 if Nx % 2 else x_pad_edge, x_pad_edge),
         )
         return np.pad(u_in, pad_width=pad_width, mode="constant", constant_values=0)
-
-
-def _crop(u, shape, topleft):
-    """
-    Crop center section of array or tensor
-
-    Parameters
-    ----------
-    u : array or tensor
-        Data to crop.
-    shape : tuple
-        Targer shape (Ny, Nx).
-
-    Returns
-    -------
-
-    """
-    Ny, Nx = shape
-    if torch.is_tensor(u):
-        if u.dtype == torch.complex64 or u.dtype == torch.complex128:
-            u_out_real = crop(u.real, top=topleft[0], left=topleft[1], height=Ny, width=Nx)
-            u_out_imag = crop(u.imag, top=topleft[0], left=topleft[1], height=Ny, width=Nx)
-            return torch.complex(u_out_real, u_out_imag)
-        else:
-            return crop(u, top=topleft[0], left=topleft[1], height=Ny, width=Nx)
-    else:
-        return u[
-            topleft[0] : topleft[0] + Ny,
-            topleft[1] : topleft[1] + Nx,
-        ]
 
 
 def _bandpass(H, fX, fY, Sx, Sy, x0, y0, z0, wv):

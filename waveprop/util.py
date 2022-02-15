@@ -4,6 +4,7 @@ import torch
 from scipy.special import j1
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
+from torchvision.transforms.functional import crop as crop_torch
 
 
 def ft2(g, delta):
@@ -361,3 +362,38 @@ def gamma_correction(vals, gamma=2.2):
     # rgb_max = np.amax(vals, axis=0) + 0.00001  # avoid division by zero
     # intensity_cutoff = 1.0
     # return np.where(rgb_max > intensity_cutoff, vals * intensity_cutoff / (rgb_max), vals)
+
+
+def crop(u, shape, topleft=None, center_shift=None):
+    """
+    Crop center section of array or tensor (default). Otherwise set `topleft`.
+
+    Parameters
+    ----------
+    u : array or tensor
+        Data to crop.
+    shape : tuple
+        Target shape (Ny, Nx).
+
+    Returns
+    -------
+
+    """
+    Ny, Nx = shape
+    if topleft is None:
+        topleft = (int((u.shape[0] - Ny) / 2), int((u.shape[1] - Nx) / 2))
+    if center_shift is not None:
+        # subtract (positive) on second column to shift to the right
+        topleft = (topleft[0] + center_shift[0], topleft[1] + center_shift[1])
+    if torch.is_tensor(u):
+        if u.dtype == torch.complex64 or u.dtype == torch.complex128:
+            u_out_real = crop_torch(u.real, top=topleft[0], left=topleft[1], height=Ny, width=Nx)
+            u_out_imag = crop_torch(u.imag, top=topleft[0], left=topleft[1], height=Ny, width=Nx)
+            return torch.complex(u_out_real, u_out_imag)
+        else:
+            return crop_torch(u, top=topleft[0], left=topleft[1], height=Ny, width=Nx)
+    else:
+        return u[
+            topleft[0] : topleft[0] + Ny,
+            topleft[1] : topleft[1] + Nx,
+        ]

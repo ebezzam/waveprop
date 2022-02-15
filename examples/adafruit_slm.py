@@ -2,7 +2,7 @@
 
 Amplitude modulation
 
-# TODO give subpixel unique wavelength, see `examples/incoherent_source_slm_poly.py`
+# TODO give subpixel unique wavelength, see `examples/incoherent_source_adafruit_slm.py`
 
 """
 

@@ -77,7 +77,7 @@ def get_deadspace(slm_size, slm_dim, pixel_size):
     return dead_space / (np.array(slm_dim) - 1)
 
 
-def get_centers(slm_dim, pixel_pitch, return_color_filter=False):
+def get_centers(slm_dim, pixel_pitch, return_color_filter=False, first_color=0):
     """
     Return
 
@@ -87,6 +87,10 @@ def get_centers(slm_dim, pixel_pitch, return_color_filter=False):
         Dimensions of SLM in number of pixels (Ny, Nx).
     pixel_pitch : array_like
         Spacing between each pixel along each dimension.
+    return_color_filter : bool
+        Whether to return color filter for each center.
+    first_color : int
+        Which color is first row. R:0, G:1, or B:2.
 
     Returns
     -------
@@ -96,15 +100,15 @@ def get_centers(slm_dim, pixel_pitch, return_color_filter=False):
     assert len(slm_dim) == 2
     assert len(pixel_pitch) == 2
 
-    centers_y = np.arange(slm_dim[0])[:, np.newaxis] * pixel_pitch[0]
+    centers_y = np.arange(slm_dim[0])[::-1, np.newaxis] * pixel_pitch[0]
     centers_y -= np.mean(centers_y)
-    centers_x = np.arange(slm_dim[1])[np.newaxis, :] * pixel_pitch[1]
+    centers_x = np.arange(slm_dim[1])[np.newaxis, ::-1] * pixel_pitch[1]
     centers_x -= np.mean(centers_x)
     centers = np.array(np.meshgrid(centers_y, centers_x)).T.reshape(-1, 2)
     if return_color_filter:
         cf = np.zeros((3,) + tuple(slm_dim), dtype=np.float32)
         for i in range(slm_dim[0]):
-            cf[i % 3, i] = 1
+            cf[(i + first_color) % 3, i] = 1
         return centers, cf.reshape(3, -1)
     else:
         return centers
