@@ -397,3 +397,45 @@ def crop(u, shape, topleft=None, center_shift=None):
             topleft[0] : topleft[0] + Ny,
             topleft[1] : topleft[1] + Nx,
         ]
+
+
+def _get_dtypes(dtype, is_torch):
+    if not is_torch:
+        if dtype == np.float32 or dtype == np.complex64:
+            return np.complex64, np.complex64
+        elif dtype == np.float64 or dtype == np.complex128:
+            return np.complex128, np.complex128
+        else:
+            raise ValueError("Unexpected dtype")
+    else:
+        if dtype == np.float32 or dtype == np.complex64:
+            return torch.complex64, np.complex64
+        elif dtype == np.float64 or dtype == np.complex128:
+            return torch.complex128, np.complex128
+        elif dtype == torch.float32 or dtype == torch.complex64:
+            return torch.complex64, np.complex64
+        elif dtype == torch.float64 or dtype == torch.complex128:
+            return torch.complex128, np.complex128
+        else:
+            raise ValueError("Unexpected dtype")
+
+
+def zero_pad(u_in):
+    Ny, Nx = u_in.shape
+    y_pad_edge = int(Ny // 2)
+    x_pad_edge = int(Nx // 2)
+
+    if torch.is_tensor(u_in):
+        pad_width = (
+            x_pad_edge + 1 if Nx % 2 else x_pad_edge,
+            x_pad_edge,
+            y_pad_edge + 1 if Ny % 2 else y_pad_edge,
+            y_pad_edge,
+        )
+        return torch.nn.functional.pad(u_in, pad_width, mode="constant", value=0.0)
+    else:
+        pad_width = (
+            (y_pad_edge + 1 if Ny % 2 else y_pad_edge, y_pad_edge),
+            (x_pad_edge + 1 if Nx % 2 else x_pad_edge, x_pad_edge),
+        )
+        return np.pad(u_in, pad_width=pad_width, mode="constant", constant_values=0)

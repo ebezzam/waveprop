@@ -1,10 +1,9 @@
 import numpy as np
 import math
 import torch
-from waveprop.util import sample_points
+from waveprop.util import sample_points, _get_dtypes
 from waveprop.pytorch_util import fftconvolve as fftconvolve_torch
 from scipy.signal import fftconvolve
-from waveprop.rs import _get_dtypes
 
 
 def spherical_prop(u_in, d1=None, wv=None, dz=None, return_psf=False, psf=None, dtype=None):

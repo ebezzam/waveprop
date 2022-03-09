@@ -12,8 +12,9 @@ import time
 import progressbar
 import torch
 import os
-from waveprop.util import sample_points, plot2d, rect2d, ft2
-from waveprop.rs import angular_spectrum, _zero_pad
+from waveprop.util import sample_points, plot2d
+from waveprop.rs import angular_spectrum
+from waveprop.fresnel import fresnel_conv
 from waveprop.slm import get_active_pixel_dim, get_slm_mask
 import matplotlib.pyplot as plt
 from waveprop.dataset_util import load_dataset, Datasets
@@ -22,6 +23,7 @@ from waveprop.pytorch_util import fftconvolve as fftconvolve_torch
 from scipy.signal import fftconvolve
 from waveprop.color import ColorSystem, rgb2gray
 import click
+from waveprop.devices import SLMOptions, slm, SensorOptions, SensorParam, sensor
 
 
 @click.command()
@@ -33,10 +35,10 @@ import click
 )
 @click.option("--idx", type=int, default=50, help="Index from dataset.")
 @click.option(
-    "--input_pad",
+    "--object_height",
     type=float,
-    default=2,
-    help="How many times to pad input scene along both dimensions.",
+    default=5e-2,
+    help="Height of object in meters.",
 )
 @click.option("--down", type=int, default=6, help="Downsample factor.")
 @click.option("--deadspace", is_flag=True, help="Whether to model deadspace.")
@@ -78,10 +80,18 @@ import click
     type=click.Choice([0, 1, 2]),
     help="Color of first row of SLM, R:0, G:1, or B:2.",
 )
+@click.option(
+    "--fresnel", is_flag=True, help="Whether to use Fresnel approximation for second propagation."
+)
+@click.option(
+    "--full_fresnel",
+    is_flag=True,
+    help="Whether to use Fresnel approximation for full propagation.",
+)
 def incoherent_simulation(
     dataset,
     idx,
-    input_pad,
+    object_height,
     down,
     deadspace,
     pytorch,
@@ -95,6 +105,8 @@ def incoherent_simulation(
     slm_pattern,
     pattern_shift,
     first_color,
+    fresnel,
+    full_fresnel,
 ):
     assert crop_fact > 0
     assert crop_fact < 1
@@ -104,17 +116,15 @@ def incoherent_simulation(
         assert os.path.exists(slm_pattern)
 
     # SLM parameters (Adafruit screen)
-    slm_dim = [128 * 3, 160]
-    slm_pixel_dim = np.array([0.06e-3, 0.18e-3])  # RGB sub-pixel
-    slm_size = [28.03e-3, 35.04e-3]
+    slm_config = slm[SLMOptions.ADAFRUIT.value]
 
     # RPi HQ camera datasheet: https://www.arducam.com/sony/imx477/#imx477-datasheet
-    rpi_dim = [3040, 4056]
-    rpi_pixel_dim = [1.55e-6, 1.55e-6]
+    sensor_config = sensor[SensorOptions.RPI_HQ.value]
+    target_dim = sensor_config[SensorParam.SHAPE] // down
 
     # polychromatric
-    wv = np.array([460, 550, 640]) * 1e-9  # restricted to these wavelengths when using RGB images
-    cs = ColorSystem(wv=wv)
+    cs = ColorSystem.rgb()
+    red_idx = np.argmin(np.abs(cs.wv - 640e-9))
 
     if pytorch:
         dtype = torch.float32
@@ -123,34 +133,31 @@ def incoherent_simulation(
         dtype = np.float32
         ctype = np.complex64
 
-    N = np.array([rpi_dim[0] // down, rpi_dim[1] // down])
-    target_dim = N.tolist()
-
     """ determining overlapping region and number of SLM pixels """
-    rpi_dim_m = np.array(rpi_dim) * np.array(rpi_pixel_dim)
     overlapping_mask_size, overlapping_mask_dim, n_active_slm_pixels = get_active_pixel_dim(
-        sensor_dim=rpi_dim,
-        sensor_pixel_size=rpi_pixel_dim,
+        sensor_config=sensor_config,
         sensor_crop=crop_fact,
-        slm_size=slm_size,
-        slm_dim=slm_dim,
-        slm_pixel_size=slm_pixel_dim,
+        slm_config=slm_config,
     )
-    print("RPi sensor dimensions [m] :", rpi_dim_m)
+
+    print("Sensor dimensions [m] :", sensor_config[SensorParam.SIZE])
     print("Overlapping SLM dimensions [m] :", overlapping_mask_size)
     print("Number of overlapping SLM pixels :", overlapping_mask_dim)
     print("Number of active SLM pixels :", n_active_slm_pixels)
 
     """ load input image """
-    d1 = np.array(overlapping_mask_size) / N
-    x1, y1 = sample_points(N=N, delta=d1)
+    d1 = np.array(overlapping_mask_size) / target_dim
+    x1, y1 = sample_points(N=target_dim, delta=d1)
 
     # load dataset
     ds = load_dataset(
         dataset,
-        target_dim=target_dim,
+        scene2mask=d,
+        mask2sensor=z,
+        sensor_dim=sensor_config[SensorParam.SIZE],
+        object_height=object_height,
+        target_dim=target_dim.tolist(),
         device=device,
-        pad=input_pad,
         grayscale=False,
         vflip=True,
         # for Flickr8
@@ -177,33 +184,12 @@ def incoherent_simulation(
     else:
         plot2d(x1.squeeze(), y1.squeeze(), input_image, title="input")
 
-    """ propagate free space, far-field """
-    spherical_wavefront = spherical_prop(input_image, d1, cs.wv, d, return_psf=True)
-    print("shape", spherical_wavefront.shape)
-    print("dtype", spherical_wavefront.dtype)
-
-    # check PSF for closest to red
-    red_idx = np.argmin(np.abs(cs.wv - 640e-9))
-    plot_title = f"{d}m spherical wavefront (phase), wv={1e9 * cs.wv[red_idx]:.2f}nm"
-    if pytorch:
-        plot2d(
-            x1.squeeze(),
-            y1.squeeze(),
-            np.angle(spherical_wavefront[red_idx].cpu()),
-            title=plot_title,
-        )
-    else:
-        plot2d(x1.squeeze(), y1.squeeze(), np.angle(spherical_wavefront[red_idx]), title=plot_title)
-
     """ discretize aperture (some SLM pixels will overlap due to coarse sampling) """
     mask = get_slm_mask(
-        slm_dim,
-        slm_size,
-        slm_pixel_dim,
-        rpi_dim,
-        rpi_pixel_dim,
-        crop_fact,
-        N,
+        slm_config=slm_config,
+        sensor_config=sensor_config,
+        crop_fact=crop_fact,
+        target_dim=target_dim,
         slm_pattern=slm_pattern,
         deadspace=deadspace,
         pattern_shift=pattern_shift,
@@ -222,16 +208,43 @@ def incoherent_simulation(
     else:
         plot2d(x1.squeeze(), y1.squeeze(), mask, title="Aperture")
 
-    """ after mask / aperture """
-    print("\n-- after aperture")
-    u_in = mask * spherical_wavefront
-    print(u_in.shape)
-    print(u_in.dtype)
-    plot_title = f"After mask/aperture (phase), wv={1e9 * cs.wv[red_idx]:.2f}nm"
-    if pytorch:
-        plot2d(x1.squeeze(), y1.squeeze(), np.angle(u_in[red_idx].cpu().detach()), title=plot_title)
+    """ propagate free space, far-field """
+    if full_fresnel:
+        # TODO
+        print("TODO!!")
+        first_prop = 1  # See Sepand's notes
+        u_in = mask
     else:
-        plot2d(x1.squeeze(), y1.squeeze(), np.angle(u_in[red_idx]), title=plot_title)
+        spherical_wavefront = spherical_prop(input_image, d1, cs.wv, d, return_psf=True)
+        print("shape", spherical_wavefront.shape)
+        print("dtype", spherical_wavefront.dtype)
+
+        # check PSF for closest to red
+        plot_title = f"{d}m spherical wavefront (phase), wv={1e9 * cs.wv[red_idx]:.2f}nm"
+        if pytorch:
+            plot2d(
+                x1.squeeze(),
+                y1.squeeze(),
+                np.angle(spherical_wavefront[red_idx].cpu()),
+                title=plot_title,
+            )
+        else:
+            plot2d(
+                x1.squeeze(), y1.squeeze(), np.angle(spherical_wavefront[red_idx]), title=plot_title
+            )
+
+        """ after mask / aperture """
+        print("\n-- after aperture")
+        u_in = mask * spherical_wavefront
+        print(u_in.shape)
+        print(u_in.dtype)
+        plot_title = f"After mask/aperture (phase), wv={1e9 * cs.wv[red_idx]:.2f}nm"
+        if pytorch:
+            plot2d(
+                x1.squeeze(), y1.squeeze(), np.angle(u_in[red_idx].cpu().detach()), title=plot_title
+            )
+        else:
+            plot2d(x1.squeeze(), y1.squeeze(), np.angle(u_in[red_idx]), title=plot_title)
 
     """ mask-to-sensor simulation """
     if pytorch:
@@ -241,32 +254,17 @@ def incoherent_simulation(
     bar = progressbar.ProgressBar()
     start_time = time.time()
 
-    if deadspace:
-        # precompute aperture FT
-        u_in_cent = rect2d(x1, y1, slm_pixel_dim)
-        aperture_pad = _zero_pad(u_in_cent)
-        aperture_ft = ft2(aperture_pad, delta=d1).astype(np.complex64)
-        if pytorch:
-            aperture_ft = torch.tensor(aperture_ft, dtype=ctype).to(device)
-
     for i in bar(range(cs.n_wavelength)):
-        if deadspace:
-            # # shift same aperture in the frequency domain, not enough memory..
-            # psf_wv, x2, y2 = angular_spectrum(
-            #     u_in=spherical_wavefront[i],
-            #     wv=cs.wv[i],
-            #     d1=d1,
-            #     dz=dz,
-            #     aperture_ft=aperture_ft,
-            #     in_shift=centers,
-            #     weights=mask_flat,
-            #     dtype=dtype,
-            #     device=device,
-            # )
-            # not perfect squares
-            psf_wv, x2, y2 = angular_spectrum(
-                u_in=u_in[i], wv=cs.wv[i], d1=d1, dz=z, dtype=dtype, device=device
+        if fresnel:
+            psf_wv, x2, y2 = fresnel_conv(
+                u_in=u_in[i], wv=cs.wv[i], d1=d1[0], dz=z, dtype=dtype, device=device
             )
+        elif full_fresnel:
+            dz = 1 / d + 1 / z
+            psf_wv, x2, y2 = fresnel_conv(
+                u_in=u_in[i], wv=cs.wv[i], d1=d1[0], dz=dz, dtype=dtype, device=device
+            )
+            psf_wv /= 4 * cs.wv[i] ** 2 * d * z
         else:
             psf_wv, x2, y2 = angular_spectrum(
                 u_in=u_in[i], wv=cs.wv[i], d1=d1, dz=z, dtype=dtype, device=device

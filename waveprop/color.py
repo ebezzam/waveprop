@@ -107,6 +107,10 @@ class ColorSystem:
             ]
         )
 
+    @classmethod
+    def rgb(cls):
+        return cls(wv=np.array([460, 550, 640]) * 1e-9)
+
     def to_rgb(self, vals, clip=True, gamma=None):
         """
 

@@ -13,15 +13,21 @@ class Datasets(object):
     FLICKR8k = "FLICKR"
 
 
-# TODO : abstract parent class for Dataset, add distance for far-field propagation
+# TODO : abstract parent class for Dataset, add distance for far-field propagation. See MNIST
+# TODO : take into account FOV and offset
 
 
 class MNISTDataset(datasets.MNIST):
     def __init__(
         self,
+        object_height,
+        scene2mask,
+        mask2sensor,
+        sensor_dim,
+        target_dim,
+        fov=None,
+        offset=None,
         device=None,
-        target_dim=None,
-        pad=None,
         root="./data",
         train=True,
         download=True,
@@ -35,7 +41,7 @@ class MNISTDataset(datasets.MNIST):
 
         Parameters
         ----------
-        device
+        device : "cpu" or "gpu"
         target_dim
         pad
         root
@@ -48,16 +54,27 @@ class MNISTDataset(datasets.MNIST):
         """
 
         self.input_dim = np.array([28, 28])
-        transform_list = [transforms.ToTensor()]
+        transform_list = [np.array, transforms.ToTensor()]
+        # transform_list = []
         if vflip:
             transform_list.append(transforms.RandomVerticalFlip(p=1.0))
-        if pad:
-            padding = (pad * self.input_dim / 2).astype(np.int).tolist()
-            transform_list.append(transforms.Pad(padding))
-        if target_dim:
-            transform_list.append(
-                transforms.RandomResizedCrop(target_dim, ratio=(1, 1), scale=scale)
-            )
+
+        # scale image to desired height at object plane
+        magnification = mask2sensor / scene2mask
+        self.scene_dim = sensor_dim / magnification
+        object_height_pix = int(np.round(object_height / self.scene_dim[1] * target_dim[1]))
+        scaling = object_height_pix / self.input_dim[1]
+        object_dim = (np.round(self.input_dim * scaling)).astype(int).tolist()
+        transform_list.append(transforms.RandomResizedCrop(object_dim, ratio=(1, 1), scale=scale))
+
+        # pad rest with zeros
+        padding = np.array(target_dim) - object_dim
+        left = padding[1] // 2
+        right = padding[1] - left
+        top = padding[0] // 2
+        bottom = padding[0] - top
+        transform_list.append(transforms.Pad(padding=(left, top, right, bottom)))
+
         if not grayscale:
             transform_list.append(transforms.Lambda(lambda x: x.repeat(3, 1, 1)))
         transform = transforms.Compose(transform_list)
@@ -219,7 +236,48 @@ class FlickrDataset(Dataset):
         return img, caption
 
 
+def get_object_height_pix(object_height, mask2sensor, scene2mask, sensor_dim, target_dim):
+    """
+    Determine height of object in pixel when it reaches the sensor.
+
+    Parameters
+    ----------
+    object_height
+    mask2sensor
+    scene2mask
+    sensor_dim
+    target_dim
+
+    Returns
+    -------
+
+    """
+    magnification = mask2sensor / scene2mask
+    scene_dim = sensor_dim / magnification
+    return int(np.round(object_height / scene_dim[1] * target_dim[1]))
+
+
 def load_dataset(dataset_str, **kwargs):
+    """
+    Load one of available datasets.
+
+    TODO : take into account FOV of mask / sensor.
+
+    Parameters
+    ----------
+    dataset_str
+    scene2mask : float
+        Distance between scene and mask. TODO : could be variable?
+    ds : float
+        Sampling at sensor.
+    fov : float
+        Field of view of camera in degrees. Limits placement of object.
+    kwargs
+
+    Returns
+    -------
+
+    """
     dataset = None
     if dataset_str == Datasets.MNIST:
         """MNIST - 60'000 examples of 28x28"""

@@ -3,27 +3,23 @@ import torch
 from waveprop.util import crop, rect2d, sample_points
 import torch.nn.functional as F
 import cv2
-
-
-COLOR_ORDER = [0, 1, 2]  # R:0, G:1, B:2 indices, verified with measurements
+from waveprop.devices import SLMParam, SensorParam
 
 
 def get_slm_mask(
-    slm_dim,
-    slm_size,
-    slm_pixel_dim,
-    rpi_dim,
-    rpi_pixel_dim,
+    slm_config,
+    sensor_config,
     crop_fact,
-    N,
+    target_dim,
     slm_vals=None,
     slm_pattern=None,
     deadspace=True,
     pattern_shift=None,
     pytorch=False,
     device="cuda",
-    dtype=np.float32,
+    dtype=None,
     first_color=0,
+    return_slm_vals=False,
 ):
     """
     TODO : directly pass slm_vals when optimizing
@@ -36,7 +32,7 @@ def get_slm_mask(
     rpi_dim
     rpi_pixel_dim
     crop_fact
-    N
+    target_dim
     slm_pattern
     deadspace
     pattern_shift
@@ -49,44 +45,64 @@ def get_slm_mask(
     -------
 
     """
-    dead_space_pix = get_deadspace(slm_size, slm_dim, slm_pixel_dim)
-    pixel_pitch = slm_pixel_dim + dead_space_pix
+    if dtype is None:
+        if pytorch:
+            dtype = torch.float32
+        else:
+            dtype = np.float32
+
     overlapping_mask_size, overlapping_mask_dim, n_active_slm_pixels = get_active_pixel_dim(
-        sensor_dim=rpi_dim,
-        sensor_pixel_size=rpi_pixel_dim,
+        sensor_config=sensor_config,
         sensor_crop=crop_fact,
-        slm_size=slm_size,
-        slm_dim=slm_dim,
-        slm_pixel_size=slm_pixel_dim,
+        slm_config=slm_config,
     )
-    d1 = np.array(overlapping_mask_size) / N
-    x, y = sample_points(N=N, delta=d1)
 
-    # create mask
-    if deadspace:
+    d1 = np.array(overlapping_mask_size) / target_dim
+    x, y = sample_points(N=target_dim, delta=d1)
 
-        mask = np.zeros((3, len(y), x.shape[1]), dtype=np.float32)
-        if slm_vals is not None:
-            raise NotImplementedError
+    # load mask pattern
+    if slm_vals is not None:
+        """use provided values"""
+        if deadspace:
+            assert slm_vals.shape == n_active_slm_pixels
+        else:
+            assert slm_vals.shape == overlapping_mask_dim
+        raise NotImplementedError
 
-        elif slm_pattern is not None:
-            slm_pattern_values = np.load(slm_pattern)
-            # stack RGB pixels along columns
-            slm_pattern_values = slm_pattern_values.reshape((-1, 160), order="F")
-            # crop section
-            top_left = (
-                int((slm_pattern_values.shape[0] - n_active_slm_pixels[0]) / 2),
-                int((slm_pattern_values.shape[1] - n_active_slm_pixels[1]) / 2),
-            )
-            if pattern_shift:
-                top_left = np.array(top_left) + np.array(pattern_shift)
-            first_color = COLOR_ORDER[top_left[0] % len(COLOR_ORDER)]
+    elif slm_pattern is not None:
+        """load from file"""
+        slm_pattern_values = np.load(slm_pattern)
+        # stack RGB pixels along columns
+        slm_pattern_values = slm_pattern_values.reshape((-1, 160), order="F")
+        # crop section
+        top_left = (
+            int((slm_pattern_values.shape[0] - n_active_slm_pixels[0]) / 2),
+            int((slm_pattern_values.shape[1] - n_active_slm_pixels[1]) / 2),
+        )
+        if pattern_shift:
+            top_left = np.array(top_left) + np.array(pattern_shift)
+        first_color = slm_config[SLMParam.COLOR_ORDER][
+            top_left[0] % len(slm_config[SLMParam.COLOR_ORDER])
+        ]
+        if deadspace:
             slm_vals = crop(slm_pattern_values, shape=n_active_slm_pixels, topleft=top_left).astype(
                 np.float32
             )
         else:
-            slm_vals = np.random.rand(*n_active_slm_pixels).astype(np.float32)
+            slm_vals = crop(
+                slm_pattern_values, shape=overlapping_mask_dim, topleft=top_left
+            ).astype(np.float32)
 
+    else:
+        """randomly generate"""
+        if deadspace:
+            slm_vals = np.random.rand(*n_active_slm_pixels).astype(np.float32)
+        else:
+            slm_vals = np.random.rand(*overlapping_mask_dim).astype(np.float32)
+
+    # create mask
+    if deadspace:
+        mask = np.zeros((3, len(y), x.shape[1]), dtype=np.float32)
         slm_vals_flat = slm_vals.reshape(-1)
         if pytorch:
             slm_vals_flat = torch.tensor(
@@ -96,12 +112,17 @@ def get_slm_mask(
 
         centers, cf = get_centers(
             n_active_slm_pixels,
-            pixel_pitch=pixel_pitch,
+            pixel_pitch=slm_config[SLMParam.PITCH],
             return_color_filter=True,
             first_color=first_color,
         )
+        if return_slm_vals:
+            if pytorch:
+                cf = torch.tensor(cf).to(slm_vals_flat)
+            return cf * slm_vals_flat, centers
+
         for i, _center in enumerate(centers):
-            ap = rect2d(x, y, slm_pixel_dim, offset=_center).astype(np.float32)
+            ap = rect2d(x, y, slm_config[SLMParam.CELL_SIZE], offset=_center).astype(np.float32)
             ap = np.tile(ap, (3, 1, 1)) * cf[:, i][:, np.newaxis, np.newaxis]
             if pytorch:
                 # TODO : is pytorch autograd compatible with in-place?
@@ -115,29 +136,6 @@ def get_slm_mask(
                 mask += ap * slm_vals_flat[i]
 
     else:
-
-        if slm_vals is not None:
-            raise NotImplementedError
-
-        elif slm_pattern is not None:
-            slm_pattern_values = np.load(slm_pattern)
-            # stack RGB pixels along columns
-            slm_pattern_values = slm_pattern_values.reshape((-1, 160), order="F")
-            # crop section
-            top_left = (
-                int((slm_pattern_values.shape[0] - n_active_slm_pixels[0]) / 2),
-                int((slm_pattern_values.shape[1] - n_active_slm_pixels[1]) / 2),
-            )
-            if pattern_shift:
-                top_left = np.array(top_left) + np.array(pattern_shift)
-            first_color = COLOR_ORDER[top_left[0] % len(COLOR_ORDER)]
-            slm_vals = crop(
-                slm_pattern_values, shape=overlapping_mask_dim, topleft=top_left
-            ).astype(np.float32)
-
-        else:
-            slm_vals = np.random.rand(*overlapping_mask_dim).astype(np.float32)
-
         mask = np.zeros((3,) + tuple(overlapping_mask_dim), dtype=np.float32)
         for i in range(n_active_slm_pixels[0]):
             mask[
@@ -151,13 +149,17 @@ def get_slm_mask(
             slm_vals = torch.tensor(slm_vals, dtype=dtype, device=device, requires_grad=True)
             mask *= slm_vals
             mask = F.interpolate(
-                mask.unsqueeze(0).unsqueeze(0), size=(3,) + tuple(N.tolist()), mode="nearest"
+                mask.unsqueeze(0).unsqueeze(0),
+                size=(3,) + tuple(target_dim.tolist()),
+                mode="nearest",
             )
             mask = mask.squeeze()
         else:
             mask *= slm_vals
             mask = cv2.resize(
-                np.transpose(mask, (1, 2, 0)), dsize=(N[1], N[0]), interpolation=cv2.INTER_NEAREST
+                np.transpose(mask, (1, 2, 0)),
+                dsize=(target_dim[1], target_dim[0]),
+                interpolation=cv2.INTER_NEAREST,
             )
             mask = np.transpose(mask, (2, 0, 1))
 
@@ -165,19 +167,20 @@ def get_slm_mask(
 
 
 def get_active_pixel_dim(
-    sensor_dim, sensor_pixel_size, sensor_crop, slm_size, slm_dim, slm_pixel_size
+    sensor_config,
+    sensor_crop,
+    slm_config,
 ):
     """
-    TODO add constraint on multiple of three for RGB pixel
+    Assumption is that SLM is larger than sensor.
+
+    TODO add constraint on multiple of three for RGB pixel?
 
     Parameters
     ----------
-    sensor_dim : dimension of camera in pixels
-    sensor_pixel_size : dimension of individual pixel on camera in meters
+    sensor_config : config from waveprop.devices.sensor
     sensor_crop : fraction of sensor that is used
-    slm_size : dimension of SLM in meters
-    slm_dim : dimension of SLM in pixels
-    slm_pixel_size : dimension of individual SLM pixel in meters.
+    slm_config : config from waveprop.devices.slm
 
     Returns
     -------
@@ -186,25 +189,21 @@ def get_active_pixel_dim(
     assert sensor_crop > 0
     assert sensor_crop <= 1
 
-    sensor_dim = np.array(sensor_dim)
-    sensor_pixel_dim = np.array(sensor_pixel_size)
-
-    # TODO could be different to due deadspace in sensor?
-    sensor_size = sensor_dim * sensor_pixel_dim
-
-    # determine SLM pitch
-    slm_pixel_dead_space = get_deadspace(slm_size, slm_dim, slm_pixel_size)
-    slm_pixel_pitch = slm_pixel_size + slm_pixel_dead_space
-
-    # get overlapping pixels
-    overlapping_mask_dim = (sensor_size + slm_pixel_dead_space) / slm_pixel_pitch
+    # get overlapping pixels (SLM larger than sensor)
+    overlapping_mask_dim = (
+        sensor_config[SensorParam.SIZE] + slm_config[SLMParam.DEADSPACE]
+    ) / slm_config[SLMParam.PITCH]
     overlapping_mask_dim = overlapping_mask_dim.astype(np.int)
-    overlapping_mask_size = overlapping_mask_dim * slm_pixel_pitch
+    overlapping_mask_size = overlapping_mask_dim * slm_config[SLMParam.PITCH]
 
     # crop out a region
     # cropped_mask_size = sensor_dim * sensor_pixel_size * sensor_crop
     cropped_mask_size = overlapping_mask_size * sensor_crop
-    n_active_slm_pixels = (cropped_mask_size + slm_pixel_dead_space) / slm_pixel_pitch
+
+    # determine number of active SLM cells
+    n_active_slm_pixels = (cropped_mask_size + slm_config[SLMParam.DEADSPACE]) / slm_config[
+        SLMParam.PITCH
+    ]
     n_active_slm_pixels = n_active_slm_pixels.astype(np.int)
 
     return overlapping_mask_size, overlapping_mask_dim, n_active_slm_pixels

@@ -9,18 +9,19 @@ from waveprop.dataset_util import FlickrDataset, CIFAR10Dataset, MNISTDataset
 
 target_dim = [3040, 4056]  # RPi sensor
 d1 = 1.55e-6  # RPi sensor
-downsample_factor = 16
+downsample_factor = 6
 idx = 50
 source_distance = 3  # [m]
 device = "cuda"  # "cpu" or "cuda"
-dataset = "CIFAR"
-mono = False
+dataset = "MNIST"
+mono = True
 random_input_phase = False
 
 if mono:
     wv = 640e-9  # red wavelength
 else:
     wv = np.array([460, 550, 640]) * 1e-9
+
 
 # downsample
 target_dim = [target_dim[0] // downsample_factor, target_dim[1] // downsample_factor]
