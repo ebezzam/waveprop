@@ -406,7 +406,7 @@ def _get_dtypes(dtype, is_torch):
         elif dtype == np.float64 or dtype == np.complex128:
             return np.complex128, np.complex128
         else:
-            raise ValueError("Unexpected dtype")
+            raise ValueError("Unexpected dtype: ", dtype)
     else:
         if dtype == np.float32 or dtype == np.complex64:
             return torch.complex64, np.complex64
@@ -417,7 +417,7 @@ def _get_dtypes(dtype, is_torch):
         elif dtype == torch.float64 or dtype == torch.complex128:
             return torch.complex128, np.complex128
         else:
-            raise ValueError("Unexpected dtype")
+            raise ValueError("Unexpected dtype: ", dtype)
 
 
 def zero_pad(u_in):

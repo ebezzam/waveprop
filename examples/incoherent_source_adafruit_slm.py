@@ -215,7 +215,9 @@ def incoherent_simulation(
         first_prop = 1  # See Sepand's notes
         u_in = mask
     else:
-        spherical_wavefront = spherical_prop(input_image, d1, cs.wv, d, return_psf=True)
+        spherical_wavefront = spherical_prop(
+            u_in=input_image, d1=d1, wv=cs.wv, dz=d, return_psf=True
+        )
         print("shape", spherical_wavefront.shape)
         print("dtype", spherical_wavefront.dtype)
 

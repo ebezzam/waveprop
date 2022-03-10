@@ -31,8 +31,8 @@ def fresnel_one_step(u_in, wv, d1, dz):
     k = 2 * np.pi / wv
 
     # coordinates
-    x1, y1 = sample_points(N=[Nx, Ny], delta=d1)
-    x2, y2 = sample_points(N=[Nx, Ny], delta=[1 / Nx / d1[0] * wv * dz, 1 / Ny / d1[1] * wv * dz])
+    x1, y1 = sample_points(N=[Ny, Nx], delta=d1)
+    x2, y2 = sample_points(N=[Ny, Nx], delta=[1 / Ny / d1[0] * wv * dz, 1 / Nx / d1[1] * wv * dz])
 
     # evaluate integral
     u_out = (
@@ -97,8 +97,7 @@ def fresnel_conv(u_in, wv, d1, dz, device=None, dtype=None, d2=None, pad=True):
     for PyTorch.
 
     NB: only works for square sampling, as non-square would result in different
-    magnification
-    factors.
+    magnification factors.
 
     Parameters
     ----------

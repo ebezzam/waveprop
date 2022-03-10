@@ -20,15 +20,11 @@ import time
 from waveprop.rs import angular_spectrum
 import matplotlib.pyplot as plt
 
-# TODO : loop for pytorch, down sampling factor
-
 
 slm_pattern_fp = "data/slm_pattern_20200802.npy"
 crop_fact = 0.7
 device = "cuda"
-scene2mask = 40e-2
 mask2sensor = 4e-3
-object_height = 5e-2
 
 # SLM  (Adafruit screen)
 slm_config = slm[SLMOptions.ADAFRUIT.value]
@@ -63,7 +59,7 @@ for pytorch in [True, False]:
         d1 = np.array(overlapping_mask_size) / target_dim
 
         try:
-            """ Creating mask in spatial domain """
+            """Creating mask in spatial domain"""
             mask = get_slm_mask(
                 slm_config=slm_config,
                 sensor_config=sensor_config,
@@ -72,7 +68,7 @@ for pytorch in [True, False]:
                 slm_pattern=slm_pattern_fp,
                 deadspace=True,
                 pytorch=pytorch,
-                device=device
+                device=device,
             )
 
             if pytorch:
@@ -100,7 +96,7 @@ for pytorch in [True, False]:
             continue
 
         try:
-            """ Creating mask in spatial frequency domain """
+            """Creating mask in spatial frequency domain"""
             mask_flat, centers = get_slm_mask(
                 slm_config=slm_config,
                 sensor_config=sensor_config,
@@ -110,7 +106,7 @@ for pytorch in [True, False]:
                 deadspace=True,
                 pytorch=pytorch,
                 device=device,
-                return_slm_vals=True
+                return_slm_vals=True,
             )
 
             # -- mask to sensor simulation
@@ -140,29 +136,36 @@ for pytorch in [True, False]:
                 )
                 psfs[i] = psf_wv
             proc_time_freq = time.time() - start_time
-            print(f"Computation time (frequency): {time.time() - start_time} s")
+            print(f"Computation time (frequency): {proc_time_freq} s")
             print(f"{proc_time_freq/proc_time_spatial}x computation")
 
             """ comparison / plot """
-            fig, ax = plt.subplots(ncols=3, nrows=1, figsize=(10, 5), )
+            fig, ax = plt.subplots(
+                ncols=3,
+                nrows=1,
+                figsize=(10, 5),
+            )
             fig.suptitle(f"pytorch={pytorch}, downsample={down}")
+            plot2d(x2.squeeze(), y2.squeeze(), spatial, title="In spatial domain", ax=ax[0])
 
-            plot_title = f"In spatial domain"
-            plot2d(x2.squeeze(), y2.squeeze(), spatial, title=plot_title, ax=ax[0])
-
-            plot_title = f"In frequency domain"
             if pytorch:
                 frequency = torch.square(torch.abs(psfs))
                 frequency = frequency.cpu().detach().numpy()
             else:
                 frequency = np.abs(psfs) ** 2
             frequency /= frequency.max()
-            plot2d(x2.squeeze(), y2.squeeze(), frequency, title=plot_title, ax=ax[1])
+            plot2d(x2.squeeze(), y2.squeeze(), frequency, title="In frequency domain", ax=ax[1])
 
             # error
             err = np.linalg.norm(spatial - frequency) / spatial.size
             print("error :", err)
-            plot2d(x2.squeeze(), y2.squeeze(), np.abs(spatial - frequency), title=f"error = {err}", ax=ax[2])
+            plot2d(
+                x2.squeeze(),
+                y2.squeeze(),
+                np.abs(spatial - frequency),
+                title=f"error = {err}",
+                ax=ax[2],
+            )
 
             del mask_flat
             del frequency
