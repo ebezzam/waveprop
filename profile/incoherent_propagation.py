@@ -56,23 +56,27 @@ for pytorch in [True, False]:
         dtype = np.float32
         ctype = np.complex64
 
-    for down in [16, 8]:
+    for down in [16, 8, 4]:
         print("\nDOWNSAMPLE : ", down)
         target_dim = sensor_config[SensorParam.SHAPE] // down
         print("shape :", target_dim)
         d1 = np.array(overlapping_mask_size) / target_dim
 
-        # create mask in spatial domain
-        mask = get_slm_mask(
-            slm_config=slm_config,
-            sensor_config=sensor_config,
-            crop_fact=crop_fact,
-            target_dim=target_dim,
-            slm_pattern=slm_pattern_fp,
-            deadspace=deadspace,
-            pytorch=pytorch,
-            device=device,
-        )
+        try:
+            # create mask in spatial domain
+            mask = get_slm_mask(
+                slm_config=slm_config,
+                sensor_config=sensor_config,
+                crop_fact=crop_fact,
+                target_dim=target_dim,
+                slm_pattern=slm_pattern_fp,
+                deadspace=deadspace,
+                pytorch=pytorch,
+                device=device,
+            )
+        except:
+            print("Not enough CUDA memory..")
+            continue
 
         # spherical wavefront from scene to mask (same for Sitzmann and BLAS)
         spherical_wavefront = spherical_prop(
@@ -176,26 +180,29 @@ for pytorch in [True, False]:
             fresnel = np.abs(psfs) ** 2
         fresnel /= fresnel.max()
 
-        # """ single step Fresnel """
-        # if not pytorch:
-        #     from waveprop.util import sample_points
-        #
-        #     d2 = d1
-        #     Ny, Nx = target_dim
-        #     if pytorch:
-        #         psfs = torch.zeros(u_in.shape, dtype=ctype).to(device)
-        #     else:
-        #         psfs = np.zeros(u_in.shape, dtype=ctype)
-        #     for i in range(cs.n_wavelength):
-        #         d1 = np.array(
-        #             [1 / Ny / d2[0] * cs.wv[i] * mask2sensor, 1 / Nx / d2[1] * cs.wv[i] * mask2sensor]
-        #         )
-        #
-        #         # TODO : input field is too small, need to expand! much too large...
-        #         print(d1 * target_dim, overlapping_mask_size)
-        #         input_target_dim = overlapping_mask_size / d1
-        #         # TODO : much too large...
-        #         print("Input shape needed for desired output size", input_target_dim)
+        """ single step Fresnel """
+        if not pytorch:
+            print("\none-step fresnel")
+            from waveprop.util import sample_points
+
+            d2 = d1
+            Ny, Nx = target_dim
+            if pytorch:
+                psfs = torch.zeros(u_in.shape, dtype=ctype).to(device)
+            else:
+                psfs = np.zeros(u_in.shape, dtype=ctype)
+            for i in range(cs.n_wavelength):
+                # d1 = np.array(
+                #     [1 / Ny / d2[0] * cs.wv[i] * mask2sensor, 1 / Nx / d2[1] * cs.wv[i] * mask2sensor]
+                # )
+                d2_fwd = cs.wv[i] * mask2sensor / overlapping_mask_size
+                input_target_dim = overlapping_mask_size / d2_fwd
+                # TODO : much too large...
+                print(
+                    f"Input shape needed for desired output size (lambda={cs.wv[i]}): {input_target_dim}"
+                )
+
+            print()
         #
         #         # fresnel between scene and mask
         #         x1, y1 = sample_points(N=target_dim, delta=d1)
