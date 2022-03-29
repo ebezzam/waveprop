@@ -44,12 +44,12 @@ def spherical_prop(
         assert len(u_in.shape) == 3
         if torch.is_tensor(u_in):
             is_torch = True
+            device = u_in.device
         else:
             is_torch = False
         in_shape = u_in.shape[1:]
         if dtype is None:
             dtype = u_in.dtype
-        device = u_in.device
     else:
         assert return_psf, "Require input field."
         assert in_shape is not None
