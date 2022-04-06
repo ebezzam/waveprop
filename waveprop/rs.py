@@ -816,7 +816,7 @@ def _form_transfer_function(
     k = 2 * np.pi / wv
     wv_sq = wv ** 2
 
-    if optimize_z or return_H_exp:
+    if optimize_z or return_H_exp or H_exp is not None:
         # need to cast to tensor before multiplying with z inside complex exp
         if H_exp is None:
 
@@ -849,7 +849,7 @@ def _form_transfer_function(
                 Sy=Ny_pad * d1[0],
                 x0=out_shift[1],
                 y0=out_shift[0],
-                z0=dz.cpu().numpy()[0],
+                z0=dz.cpu().numpy()[0] if torch.is_tensor(dz) else dz,
                 wv=wv,
             )
     else:

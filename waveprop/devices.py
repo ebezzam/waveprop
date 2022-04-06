@@ -22,7 +22,7 @@ class SLMParam:
     COLOR_ORDER = "color_order"
 
 
-slm = {
+slm_dict = {
     # 1.8 inch RGB display by Adafruit: https://learn.adafruit.com/1-8-tft-display/overview
     # datasheet: https://cdn-shop.adafruit.com/datasheets/JD-T1800.pdf
     SLMOptions.ADAFRUIT.value: {
@@ -34,8 +34,8 @@ slm = {
 }
 
 # derived parameters
-for _key in slm:
-    _config = slm[_key]
+for _key in slm_dict:
+    _config = slm_dict[_key]
     if SLMParam.DEADSPACE not in _config.keys():
         _config[SLMParam.DEADSPACE] = (
             _config[SLMParam.SIZE] - _config[SLMParam.CELL_SIZE] * _config[SLMParam.SHAPE]
@@ -61,7 +61,7 @@ class SensorParam:
     SIZE = "size"
 
 
-sensor = {
+sensor_dict = {
     # HQ Camera Sensor by Raspberry Pi
     # datasheet: https://www.arducam.com/sony/imx477/#imx477-datasheet
     SensorOptions.RPI_HQ.value: {
@@ -72,8 +72,8 @@ sensor = {
 }
 
 # derived parameters
-for _key in sensor:
-    _config = sensor[_key]
+for _key in sensor_dict:
+    _config = sensor_dict[_key]
     if SensorParam.DIAGONAL in _config.keys():
         # take into account possible deadspace
         _config[SensorParam.SIZE] = (

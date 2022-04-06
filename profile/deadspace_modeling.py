@@ -12,7 +12,7 @@ Just profiling the PSF computation!
 
 from waveprop.util import rect2d, zero_pad, ft2, sample_points, plot2d
 from waveprop.slm import get_slm_mask, get_active_pixel_dim
-from waveprop.devices import SLMOptions, slm, SensorOptions, SensorParam, sensor, SLMParam
+from waveprop.devices import SLMOptions, slm_dict, SensorOptions, SensorParam, sensor_dict, SLMParam
 import numpy as np
 from waveprop.color import ColorSystem
 import torch
@@ -27,10 +27,10 @@ device = "cuda"
 mask2sensor = 4e-3
 
 # SLM  (Adafruit screen)
-slm_config = slm[SLMOptions.ADAFRUIT.value]
+slm_config = slm_dict[SLMOptions.ADAFRUIT.value]
 
 # RPi HQ camera datasheet: https://www.arducam.com/sony/imx477/#imx477-datasheet
-sensor_config = sensor[SensorOptions.RPI_HQ.value]
+sensor_config = sensor_dict[SensorOptions.RPI_HQ.value]
 
 # polychromatric
 cs = ColorSystem.rgb()

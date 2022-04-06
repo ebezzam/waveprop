@@ -23,7 +23,7 @@ from waveprop.pytorch_util import fftconvolve as fftconvolve_torch
 from scipy.signal import fftconvolve
 from waveprop.color import ColorSystem, rgb2gray
 import click
-from waveprop.devices import SLMOptions, slm, SensorOptions, SensorParam, sensor
+from waveprop.devices import SLMOptions, slm_dict, SensorOptions, SensorParam, sensor_dict
 
 
 @click.command()
@@ -116,10 +116,10 @@ def incoherent_simulation(
         assert os.path.exists(slm_pattern)
 
     # SLM parameters (Adafruit screen)
-    slm_config = slm[SLMOptions.ADAFRUIT.value]
+    slm_config = slm_dict[SLMOptions.ADAFRUIT.value]
 
     # RPi HQ camera datasheet: https://www.arducam.com/sony/imx477/#imx477-datasheet
-    sensor_config = sensor[SensorOptions.RPI_HQ.value]
+    sensor_config = sensor_dict[SensorOptions.RPI_HQ.value]
     target_dim = sensor_config[SensorParam.SHAPE] // down
 
     # polychromatric

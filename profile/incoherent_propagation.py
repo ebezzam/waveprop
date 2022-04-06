@@ -11,7 +11,7 @@ Compare three approaches:
 
 from waveprop.util import plot2d
 from waveprop.slm import get_slm_mask, get_active_pixel_dim
-from waveprop.devices import SLMOptions, slm, SensorOptions, SensorParam, sensor
+from waveprop.devices import SLMOptions, slm_dict, SensorOptions, SensorParam, sensor_dict
 import numpy as np
 from waveprop.color import ColorSystem
 import torch
@@ -31,10 +31,10 @@ deadspace = True
 n_trials = 10
 
 # SLM  (Adafruit screen)
-slm_config = slm[SLMOptions.ADAFRUIT.value]
+slm_config = slm_dict[SLMOptions.ADAFRUIT.value]
 
 # RPi HQ camera datasheet: https://www.arducam.com/sony/imx477/#imx477-datasheet
-sensor_config = sensor[SensorOptions.RPI_HQ.value]
+sensor_config = sensor_dict[SensorOptions.RPI_HQ.value]
 
 # polychromatric
 cs = ColorSystem.rgb()

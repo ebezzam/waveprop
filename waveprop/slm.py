@@ -20,9 +20,9 @@ def get_slm_mask(
     dtype=None,
     first_color=0,
     return_slm_vals=False,
+    requires_grad=True,
 ):
     """
-    TODO : directly pass slm_vals when optimizing
 
     Parameters
     ----------
@@ -64,10 +64,14 @@ def get_slm_mask(
     if slm_vals is not None:
         """use provided values"""
         if deadspace:
-            assert slm_vals.shape == n_active_slm_pixels
+            assert np.array_equal(slm_vals.shape, n_active_slm_pixels)
         else:
-            assert slm_vals.shape == overlapping_mask_dim
-        raise NotImplementedError
+            assert np.array_equal(slm_vals.shape, n_active_slm_pixels)
+        if torch.is_tensor(slm_vals):
+            pytorch = True
+            device = slm_vals.device
+        else:
+            pytorch = False
 
     elif slm_pattern is not None:
         """load from file"""
@@ -102,13 +106,17 @@ def get_slm_mask(
 
     # create mask
     if deadspace:
-        mask = np.zeros((3, len(y), x.shape[1]), dtype=np.float32)
-        slm_vals_flat = slm_vals.reshape(-1)
-        if pytorch:
-            slm_vals_flat = torch.tensor(
-                slm_vals_flat, dtype=dtype, device=device, requires_grad=True
-            )
-            mask = torch.tensor(mask, dtype=dtype, device=device)
+        if torch.is_tensor(slm_vals):
+            slm_vals_flat = slm_vals.flatten()
+            mask = torch.zeros((3, len(y), x.shape[1]), dtype=dtype, device=device)
+        else:
+            slm_vals_flat = slm_vals.reshape(-1)
+            mask = np.zeros((3, len(y), x.shape[1]), dtype=np.float32)
+            if pytorch:
+                slm_vals_flat = torch.tensor(
+                    slm_vals_flat, dtype=dtype, device=device, requires_grad=requires_grad
+                )
+                mask = torch.tensor(mask, dtype=dtype, device=device)
 
         centers, cf = get_centers(
             n_active_slm_pixels,
@@ -146,7 +154,9 @@ def get_slm_mask(
 
         if pytorch:
             mask = torch.tensor(mask.astype(np.float32), dtype=dtype, device=device)
-            slm_vals = torch.tensor(slm_vals, dtype=dtype, device=device, requires_grad=True)
+            slm_vals = torch.tensor(
+                slm_vals, dtype=dtype, device=device, requires_grad=requires_grad
+            )
             mask *= slm_vals
             mask = F.interpolate(
                 mask.unsqueeze(0).unsqueeze(0),
