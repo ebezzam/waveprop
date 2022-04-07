@@ -40,6 +40,9 @@ source waveprop_env/bin/activate
 # install
 pip install -e .
 git+https://github.com/ebezzam/pyFFS.git@task/add_examples#egg=pyFFS
+
+# run tests
+pytest tests/
 ```
 
 ## Literature and references

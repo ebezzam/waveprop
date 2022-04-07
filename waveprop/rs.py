@@ -832,12 +832,18 @@ def _form_transfer_function(
 
         if return_H_exp:
             return H_exp
-        H = torch.exp(H_exp * dz)
+
+        if is_torch:
+            H = torch.exp(H_exp * dz)
+        else:
+            H = np.exp(H_exp * dz)
 
         if (out_shift[0] or out_shift[1]) and not pyffs:
             # Eq 7 of Matsushima (2010)
-            H_shift_np = np.exp(1j * 2 * np.pi * (out_shift[1] * fX + out_shift[0] * fY))
-            H_shift = torch.tensor(H_shift_np.astype(ctype_np), dtype=ctype).to(device)
+            H_shift = np.exp(1j * 2 * np.pi * (out_shift[1] * fX + out_shift[0] * fY))
+            if is_torch:
+                H_shift = torch.tensor(H_shift.astype(ctype_np), dtype=ctype).to(device)
+
             H *= H_shift
 
         if bandlimit:

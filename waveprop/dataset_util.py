@@ -61,7 +61,7 @@ class MNISTDataset(datasets.MNIST):
 
         # scale image to desired height at object plane
         magnification = mask2sensor / scene2mask
-        self.scene_dim = sensor_dim / magnification
+        self.scene_dim = np.array(sensor_dim) / magnification
         object_height_pix = int(np.round(object_height / self.scene_dim[1] * target_dim[1]))
         scaling = object_height_pix / self.input_dim[1]
         object_dim = (np.round(self.input_dim * scaling)).astype(int).tolist()
