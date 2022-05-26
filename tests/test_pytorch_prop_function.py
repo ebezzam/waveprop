@@ -14,7 +14,7 @@ wv = 635e-9  # wavelength (red light)
 verbose = False
 
 
-def test_angular_spectrum(
+def _test_angular_spectrum(
     diam,
     dz,
     N_out=None,
@@ -157,7 +157,7 @@ def test_angular_spectrum(
         device=device,
     )
     if optimize_z:
-        # TODO : move outside or another test?
+        # TODO : move outside or another tests?
         assert torch.is_tensor(u_out_np)
 
     u_out_np, x2, y2 = angular_spectrum(
@@ -211,98 +211,110 @@ def test_angular_spectrum(
     return u_out_torch, err_dict
 
 
-print("\n----- BLAS, no shift nor rescaling -----")
-TOL = 1e-15
-TOL_optimize_z = 1e-6
-diam = 3e-4  # diameter of aperture [m]
+def test_blas_no_shift_no_rescale():
+    TOL = 1e-15
+    TOL_optimize_z = 1e-6
+    diam = 3e-4  # diameter of aperture [m]
 
-for dtype in [torch.float32, torch.float64]:
+    for dtype in [torch.float32, torch.float64]:
 
-    for device in ["cpu", "cuda"]:
+        for device in ["cpu", "cuda"]:
 
-        for dz in [0.1, 0.01]:
+            for dz in [0.1, 0.01]:
 
-            for optimize_z in [True, False]:
+                for optimize_z in [True, False]:
 
-                print("\n", dtype, device, dz, optimize_z)
-                u_out_torch, err_dict = test_angular_spectrum(
-                    diam=diam,
-                    dz=dz,
-                    dtype=dtype,
-                    device=device,
-                    optimize_z=optimize_z,
-                    verbose=verbose,
-                )
-                pprint(err_dict)
-                # TODO : when optimizing z, error increases quite a bit due to quantization before exponential
-                assert err_dict["u_out_err"] < TOL_optimize_z if optimize_z else TOL
-                assert err_dict["u_out_err_np"] < TOL_optimize_z if optimize_z else TOL
-                assert err_dict["u_out_err_np_np"] == 0
-                assert torch.abs(u_out_torch).dtype == dtype
-
-
-print("\n----- BLAS, off-axis-----")
-TOL = 1e-15
-TOL_optimize_z = 1e-5
-diam = 2e-3  # diameter of aperture [m]
-dz = 0.5  # distance [m]
-out_shift_fact = 2
-
-for dtype in [torch.float32, torch.float64]:
-
-    for device in ["cpu", "cuda"]:
-
-        for dz in [0.1, 0.01]:
-
-            for optimize_z in [True, False]:
-
-                print("\n", dtype, device, dz, optimize_z)
-                u_out_torch, err_dict = test_angular_spectrum(
-                    diam=diam,
-                    dz=dz,
-                    dtype=dtype,
-                    device=device,
-                    optimize_z=optimize_z,
-                    verbose=verbose,
-                    out_shift_fact=out_shift_fact,
-                )
-                pprint(err_dict)
-                # TODO : when optimizing z, error increases quite a bit due to quantization before exponential
-                assert err_dict["u_out_err"] < TOL_optimize_z if optimize_z else TOL
-                assert err_dict["u_out_err_np"] < TOL_optimize_z if optimize_z else TOL
-                assert err_dict["u_out_err_np_np"] == 0
-                assert torch.abs(u_out_torch).dtype == dtype
+                    print("\n", dtype, device, dz, optimize_z)
+                    u_out_torch, err_dict = _test_angular_spectrum(
+                        diam=diam,
+                        dz=dz,
+                        dtype=dtype,
+                        device=device,
+                        optimize_z=optimize_z,
+                        verbose=verbose,
+                    )
+                    pprint(err_dict)
+                    # TODO : when optimizing z, error increases quite a bit due to quantization before exponential
+                    assert err_dict["u_out_err"] < TOL_optimize_z if optimize_z else TOL
+                    assert err_dict["u_out_err_np"] < TOL_optimize_z if optimize_z else TOL
+                    assert err_dict["u_out_err_np_np"] == 0
+                    assert torch.abs(u_out_torch).dtype == dtype
 
 
-print("\n----- BLAS, rescaling-----")
-TOL = 1e-15
-TOL_optimize_z = 1e-4
-diam = 2e-3  # diameter of aperture [m]
-out_shift_fact = 10
-output_scaling = 1 / 4
+def test_blas_off_axis():
+    TOL = 1e-15
+    TOL_optimize_z = 1e-5
+    diam = 2e-3  # diameter of aperture [m]
+    dz = 0.5  # distance [m]
+    out_shift_fact = 2
 
-for dtype in [torch.float32, torch.float64]:
+    for dtype in [torch.float32, torch.float64]:
 
-    for device in ["cpu", "cuda"]:
+        for device in ["cpu", "cuda"]:
 
-        for dz in [0.1, 0.01]:
+            for dz in [0.1, 0.01]:
 
-            for optimize_z in [True, False]:
+                for optimize_z in [True, False]:
 
-                print("\n", dtype, device, dz, optimize_z)
-                u_out_torch, err_dict = test_angular_spectrum(
-                    diam=diam,
-                    dz=dz,
-                    dtype=dtype,
-                    device=device,
-                    optimize_z=optimize_z,
-                    verbose=verbose,
-                    out_shift_fact=out_shift_fact,
-                    output_scaling=output_scaling,
-                )
-                pprint(err_dict)
-                # TODO : when optimizing z, error increases quite a bit due to quantization before exponential
-                assert err_dict["u_out_err"] < TOL_optimize_z if optimize_z else TOL
-                assert err_dict["u_out_err_np"] < TOL_optimize_z if optimize_z else TOL
-                assert err_dict["u_out_err_np_np"] == 0
-                assert torch.abs(u_out_torch).dtype == dtype
+                    print("\n", dtype, device, dz, optimize_z)
+                    u_out_torch, err_dict = _test_angular_spectrum(
+                        diam=diam,
+                        dz=dz,
+                        dtype=dtype,
+                        device=device,
+                        optimize_z=optimize_z,
+                        verbose=verbose,
+                        out_shift_fact=out_shift_fact,
+                    )
+                    pprint(err_dict)
+                    # TODO : when optimizing z, error increases quite a bit due to quantization before exponential
+                    assert err_dict["u_out_err"] < TOL_optimize_z if optimize_z else TOL
+                    assert err_dict["u_out_err_np"] < TOL_optimize_z if optimize_z else TOL
+                    assert err_dict["u_out_err_np_np"] == 0
+                    assert torch.abs(u_out_torch).dtype == dtype
+
+
+def test_blas_rescaling():
+    TOL = 1e-15
+    TOL_optimize_z = 1e-4
+    diam = 2e-3  # diameter of aperture [m]
+    out_shift_fact = 10
+    output_scaling = 1 / 4
+
+    for dtype in [torch.float32, torch.float64]:
+
+        for device in ["cpu", "cuda"]:
+
+            for dz in [0.1, 0.01]:
+
+                for optimize_z in [True, False]:
+
+                    print("\n", dtype, device, dz, optimize_z)
+                    u_out_torch, err_dict = _test_angular_spectrum(
+                        diam=diam,
+                        dz=dz,
+                        dtype=dtype,
+                        device=device,
+                        optimize_z=optimize_z,
+                        verbose=verbose,
+                        out_shift_fact=out_shift_fact,
+                        output_scaling=output_scaling,
+                    )
+                    pprint(err_dict)
+                    # TODO : when optimizing z, error increases quite a bit due to quantization before exponential
+                    assert err_dict["u_out_err"] < TOL_optimize_z if optimize_z else TOL
+                    assert err_dict["u_out_err_np"] < TOL_optimize_z if optimize_z else TOL
+                    assert err_dict["u_out_err_np_np"] == 0
+                    assert torch.abs(u_out_torch).dtype == dtype
+
+
+if __name__ == "__main__":
+
+    print("\n----- BLAS, no shift nor rescaling -----")
+    test_blas_no_shift_no_rescale()
+
+    print("\n----- BLAS, off-axis-----")
+    test_blas_off_axis()
+
+    print("\n----- BLAS, rescaling-----")
+    test_blas_rescaling()
