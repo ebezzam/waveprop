@@ -66,7 +66,7 @@ def get_slm_mask(
         if deadspace:
             assert np.array_equal(slm_vals.shape, n_active_slm_pixels)
         else:
-            assert np.array_equal(slm_vals.shape, n_active_slm_pixels)
+            assert np.array_equal(slm_vals.shape, overlapping_mask_dim)
         if torch.is_tensor(slm_vals):
             pytorch = True
             device = slm_vals.device

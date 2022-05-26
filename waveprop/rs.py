@@ -26,7 +26,7 @@ def free_space_impulse_response(k, x, y, z):
         Propagation distance [m].
 
     """
-    r = np.sqrt(x ** 2 + y ** 2 + z ** 2)
+    r = np.sqrt(x**2 + y**2 + z**2)
     return 1 / (2 * np.pi) * np.exp(1j * k * r) / r * z / r * (1 / r - 1j * k)
 
 
@@ -277,11 +277,11 @@ def angular_spectrum_np(
     dfY = 1.0 / Dy
     fX = np.arange(-Nx_pad / 2, Nx_pad / 2)[np.newaxis, :] * dfX
     fY = np.arange(-Ny_pad / 2, Ny_pad / 2)[:, np.newaxis] * dfY
-    fsq = fX ** 2 + fY ** 2
+    fsq = fX**2 + fY**2
 
     # compute transfer function (Saleh / Sepand's notes but w/o abs val on distance)
     k = 2 * np.pi / wv
-    wv_sq = wv ** 2
+    wv_sq = wv**2
     # H = np.zeros_like(u_in_pad).astype(complex)
     H = np.zeros((fY.shape[0], fX.shape[1]), dtype=ctype)
     prop_waves = fsq <= 1 / wv_sq
@@ -403,9 +403,9 @@ def angular_spectrum_np(
             # Eq 9 of "Band-limited angular spectrum numerical propagation method with selective scaling
             # of observation window size and sample number" (2012)
             u_out = (
-                np.exp(1j * np.pi / alpha_x * x2 ** 2)
+                np.exp(1j * np.pi / alpha_x * x2**2)
                 * d2[1]
-                * np.exp(1j * np.pi / alpha_y * y2 ** 2)
+                * np.exp(1j * np.pi / alpha_y * y2**2)
                 * d2[0]
             ).astype(ctype)
 
@@ -415,11 +415,11 @@ def angular_spectrum_np(
                 U2
                 * (1 / alpha_x)
                 * (1 / alpha_y)
-                * np.exp(1j * np.pi / alpha_x * fX_scaled ** 2)
-                * np.exp(1j * np.pi / alpha_y * fY_scaled ** 2)
+                * np.exp(1j * np.pi / alpha_x * fX_scaled**2)
+                * np.exp(1j * np.pi / alpha_y * fY_scaled**2)
             )
-            f = np.exp(-1j * np.pi / alpha_x * fX_scaled ** 2) * np.exp(
-                -1j * np.pi / alpha_y * fY_scaled ** 2
+            f = np.exp(-1j * np.pi / alpha_x * fX_scaled**2) * np.exp(
+                -1j * np.pi / alpha_y * fY_scaled**2
             )
             tmp = fftconvolve(B, f, mode="same")
             u_out *= tmp[
@@ -685,22 +685,22 @@ def angular_spectrum(
             alpha_x = d2[1] / dfX
             alpha_y = d2[0] / dfY
             u_out = (
-                np.exp(1j * np.pi / alpha_x * x2 ** 2)
+                np.exp(1j * np.pi / alpha_x * x2**2)
                 * d2[1]
-                * np.exp(1j * np.pi / alpha_y * y2 ** 2)
+                * np.exp(1j * np.pi / alpha_y * y2**2)
                 * d2[0]
             ).astype(ctype_np)
             fX_scaled = alpha_x * fX
             fY_scaled = alpha_y * fY
-            f = np.exp(-1j * np.pi / alpha_x * fX_scaled ** 2) * np.exp(
-                -1j * np.pi / alpha_y * fY_scaled ** 2
+            f = np.exp(-1j * np.pi / alpha_x * fX_scaled**2) * np.exp(
+                -1j * np.pi / alpha_y * fY_scaled**2
             )
 
             if is_torch:
                 u_out = torch.tensor(u_out, dtype=ctype).to(device)
                 mod_term = (
-                    np.exp(1j * np.pi / alpha_x * fX_scaled ** 2)
-                    * np.exp(1j * np.pi / alpha_y * fY_scaled ** 2)
+                    np.exp(1j * np.pi / alpha_x * fX_scaled**2)
+                    * np.exp(1j * np.pi / alpha_y * fY_scaled**2)
                     * (1 / alpha_x)
                     * (1 / alpha_y)
                 )
@@ -713,8 +713,8 @@ def angular_spectrum(
                     U2
                     * (1 / alpha_x)
                     * (1 / alpha_y)
-                    * np.exp(1j * np.pi / alpha_x * fX_scaled ** 2)
-                    * np.exp(1j * np.pi / alpha_y * fY_scaled ** 2)
+                    * np.exp(1j * np.pi / alpha_x * fX_scaled**2)
+                    * np.exp(1j * np.pi / alpha_y * fY_scaled**2)
                 )
                 tmp = fftconvolve(B, f, mode="same")
             u_out *= crop(
@@ -812,9 +812,9 @@ def _form_transfer_function(
     fY = np.arange(-Ny_pad / 2, Ny_pad / 2)[:, np.newaxis] * dfY
 
     # - compute transfer function
-    fsq = fX ** 2 + fY ** 2
+    fsq = fX**2 + fY**2
     k = 2 * np.pi / wv
-    wv_sq = wv ** 2
+    wv_sq = wv**2
 
     if optimize_z or return_H_exp or H_exp is not None:
         # need to cast to tensor before multiplying with z inside complex exp
@@ -901,8 +901,8 @@ def _bandpass(H, fX, fY, Sx, Sy, x0, y0, z0, wv):
     :return:
     """
     du = 1 / (2 * Sx)
-    u_limit_p = ((x0 + 1 / (2 * du)) ** (-2) * z0 ** 2 + 1) ** (-1 / 2) / wv
-    u_limit_n = ((x0 - 1 / (2 * du)) ** (-2) * z0 ** 2 + 1) ** (-1 / 2) / wv
+    u_limit_p = ((x0 + 1 / (2 * du)) ** (-2) * z0**2 + 1) ** (-1 / 2) / wv
+    u_limit_n = ((x0 - 1 / (2 * du)) ** (-2) * z0**2 + 1) ** (-1 / 2) / wv
     if Sx < x0:
         u0 = (u_limit_p + u_limit_n) / 2
         u_width = u_limit_p - u_limit_n
@@ -914,8 +914,8 @@ def _bandpass(H, fX, fY, Sx, Sy, x0, y0, z0, wv):
         u_width = u_limit_p + u_limit_n
 
     dv = 1 / (2 * Sy)
-    v_limit_p = ((y0 + 1 / (2 * dv)) ** (-2) * z0 ** 2 + 1) ** (-1 / 2) / wv
-    v_limit_n = ((y0 - 1 / (2 * dv)) ** (-2) * z0 ** 2 + 1) ** (-1 / 2) / wv
+    v_limit_p = ((y0 + 1 / (2 * dv)) ** (-2) * z0**2 + 1) ** (-1 / 2) / wv
+    v_limit_n = ((y0 - 1 / (2 * dv)) ** (-2) * z0**2 + 1) ** (-1 / 2) / wv
     if Sy < y0:
         v0 = (v_limit_p + v_limit_n) / 2
         v_width = v_limit_p - v_limit_n
