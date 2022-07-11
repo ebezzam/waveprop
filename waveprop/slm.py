@@ -131,16 +131,27 @@ def get_slm_mask(
 
         for i, _center in enumerate(centers):
 
-            _center_pixel = (_center / d1 + target_dim/2).astype(int)
+            _center_pixel = (_center / d1 + target_dim / 2).astype(int)
             _height_pixel, _width_pixel = (slm_config[SLMParam.CELL_SIZE] / d1).astype(int)
 
-            rect =  np.tile(cf[:, i][:, np.newaxis, np.newaxis], (1, _height_pixel, _width_pixel))
+            rect = np.tile(cf[:, i][:, np.newaxis, np.newaxis], (1, _height_pixel, _width_pixel))
 
             if pytorch:
                 rect = torch.tensor(rect).to(slm_vals_flat)
 
-            mask[:, _center_pixel[0] - np.floor(_height_pixel/2).astype(int) : _center_pixel[0] + np.ceil(_height_pixel/2).astype(int),
-                 _center_pixel[1]+1 - np.floor(_width_pixel/2).astype(int) : _center_pixel[1]+1 + np.ceil(_width_pixel/2).astype(int)] = slm_vals_flat[i] * rect
+            mask[
+                :,
+                _center_pixel[0]
+                - np.floor(_height_pixel / 2).astype(int) : _center_pixel[0]
+                + np.ceil(_height_pixel / 2).astype(int),
+                _center_pixel[1]
+                + 1
+                - np.floor(_width_pixel / 2).astype(int) : _center_pixel[1]
+                + 1
+                + np.ceil(_width_pixel / 2).astype(int),
+            ] = (
+                slm_vals_flat[i] * rect
+            )
 
     else:
         mask = np.zeros((3,) + tuple(overlapping_mask_dim), dtype=np.float32)
