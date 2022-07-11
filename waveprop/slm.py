@@ -130,18 +130,17 @@ def get_slm_mask(
             return cf * slm_vals_flat, centers
 
         for i, _center in enumerate(centers):
-            ap = rect2d(x, y, slm_config[SLMParam.CELL_SIZE], offset=_center).astype(np.float32)
-            ap = np.tile(ap, (3, 1, 1)) * cf[:, i][:, np.newaxis, np.newaxis]
+
+            _center_pixel = (_center / d1 + target_dim/2).astype(int)
+            _height_pixel, _width_pixel = (slm_config[SLMParam.CELL_SIZE] / d1).astype(int)
+
+            rect =  np.tile(cf[:, i][:, np.newaxis, np.newaxis], (1, _height_pixel, _width_pixel))
+
             if pytorch:
-                # TODO : is pytorch autograd compatible with in-place?
-                # https://pytorch.org/docs/stable/notes/autograd.html#in-place-operations-with-autograd
-                # https://discuss.pytorch.org/t/what-is-in-place-operation/16244/15
-                index_tensor = torch.tensor([i], dtype=torch.int, device=device)
-                mask += torch.tensor(ap, dtype=dtype, device=device) * torch.index_select(
-                    slm_vals_flat, 0, index_tensor
-                )
-            else:
-                mask += ap * slm_vals_flat[i]
+                rect = torch.tensor(rect).to(slm_vals_flat)
+
+            mask[:, _center_pixel[0] - np.floor(_height_pixel/2).astype(int) : _center_pixel[0] + np.ceil(_height_pixel/2).astype(int),
+                 _center_pixel[1]+1 - np.floor(_width_pixel/2).astype(int) : _center_pixel[1]+1 + np.ceil(_width_pixel/2).astype(int)] = slm_vals_flat[i] * rect
 
     else:
         mask = np.zeros((3,) + tuple(overlapping_mask_dim), dtype=np.float32)
