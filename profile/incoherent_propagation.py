@@ -143,7 +143,7 @@ for pytorch in [True, False]:
 
         x1, y1 = sample_points(N=target_dim, delta=d1)
         k = (2 * np.pi / cs.wv)[:, np.newaxis, np.newaxis]
-        curvature = (x1**2 + y1**2)[np.newaxis, :]
+        curvature = (x1 ** 2 + y1 ** 2)[np.newaxis, :]
         # eq. 4-7 of Goodman
         psf = (
             np.exp(1j * k * curvature / 2 / scene2mask)
