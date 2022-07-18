@@ -75,10 +75,10 @@ from waveprop.devices import SLMOptions, slm_dict, SensorOptions, SensorParam, s
     help="Shift from center of SLM pattern that is read, in case SLM is not centered in setup.",
 )
 @click.option(
-    "--first_color",
+    "--shift",
     default=0,
     type=click.Choice([0, 1, 2]),
-    help="Color of first row of SLM, R:0, G:1, or B:2.",
+    help="Shift color filter to start on R:0, B:1, G:2",
 )
 @click.option(
     "--fresnel", is_flag=True, help="Whether to use Fresnel approximation for second propagation."
@@ -104,7 +104,7 @@ def incoherent_simulation(
     z,
     slm_pattern,
     pattern_shift,
-    first_color,
+    shift,
     fresnel,
     full_fresnel,
 ):
@@ -196,7 +196,7 @@ def incoherent_simulation(
         pytorch=pytorch,
         device=device,
         dtype=dtype,
-        first_color=first_color,
+        shift=shift,
     )
 
     # plot input

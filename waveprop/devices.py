@@ -1,4 +1,5 @@
 from enum import Enum
+from turtle import pu
 import numpy as np
 
 """ SLMs """
@@ -18,8 +19,8 @@ class SLMParam:
     SIZE = "size"
     DEADSPACE = "deadspace"
     PITCH = "pitch"
-    # order of RGB subpixels, R:0, G:1, B:2 indices, verified with measurements
-    COLOR_ORDER = "color_order"
+    # (optional) color filter on top of SLM, each filter should be length-3 tuple for (R, G, B)
+    COLOR_FILTER = "color_filter"
 
 
 slm_dict = {
@@ -29,7 +30,15 @@ slm_dict = {
         SLMParam.CELL_SIZE: np.array([0.06e-3, 0.18e-3]),  # RGB sub-pixel
         SLMParam.SHAPE: np.array([128 * 3, 160]),
         SLMParam.SIZE: np.array([28.03e-3, 35.04e-3]),
-        SLMParam.COLOR_ORDER: np.array([0, 1, 2]),
+        # SLMParam.COLOR_ORDER: np.array([0, 1, 2]),
+        # (3x1) color filter
+        SLMParam.COLOR_FILTER: np.array([(1, 0, 0), (0, 1, 0), (0, 0, 1)])[:, np.newaxis],
+        # # E.G. for 2D color filter
+        # SLMParam.COLOR_FILTER: np.array(
+        #     [
+        #         [(1, 0, 0), (0, 1, 0)], [(0, 1, 0), (0, 0, 1)]
+        #     ]
+        # ),
     }
 }
 
@@ -42,6 +51,8 @@ for _key in slm_dict:
         ) / (_config[SLMParam.SHAPE] - 1)
     if SLMParam.PITCH not in _config.keys():
         _config[SLMParam.PITCH] = _config[SLMParam.CELL_SIZE] + _config[SLMParam.DEADSPACE]
+    if SLMParam.COLOR_FILTER in _config.keys():
+        assert len(_config[SLMParam.COLOR_FILTER].shape) == 3
 
 """ Camera sensors """
 

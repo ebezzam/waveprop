@@ -1,3 +1,4 @@
+from turtle import pu
 import numpy as np
 import torch
 from waveprop.util import crop, rect2d, sample_points
@@ -18,8 +19,8 @@ def get_slm_mask(
     pytorch=False,
     device="cuda",
     dtype=None,
-    first_color=0,
-    return_slm_vals=False,
+    shift=0,
+    # return_slm_vals=False,
     requires_grad=True,
 ):
     """
@@ -57,6 +58,11 @@ def get_slm_mask(
         slm_config=slm_config,
     )
 
+    if SLMParam.COLOR_FILTER in slm_config.keys():
+        n_color_filter = np.prod(slm_config["color_filter"].shape[:2])
+    else:
+        n_color_filter = 1
+
     d1 = np.array(overlapping_mask_size) / target_dim
     x, y = sample_points(N=target_dim, delta=d1)
 
@@ -74,6 +80,7 @@ def get_slm_mask(
             pytorch = False
 
     elif slm_pattern is not None:
+        # TODO check
         """load from file"""
         slm_pattern_values = np.load(slm_pattern)
         # stack RGB pixels along columns
@@ -108,26 +115,27 @@ def get_slm_mask(
     if deadspace:
         if torch.is_tensor(slm_vals):
             slm_vals_flat = slm_vals.flatten()
-            mask = torch.zeros((3, len(y), x.shape[1]), dtype=dtype, device=device)
+            mask = torch.zeros((n_color_filter, len(y), x.shape[1]), dtype=dtype, device=device)
         else:
             slm_vals_flat = slm_vals.reshape(-1)
-            mask = np.zeros((3, len(y), x.shape[1]), dtype=np.float32)
+            mask = np.zeros((n_color_filter, len(y), x.shape[1]), dtype=np.float32)
             if pytorch:
                 slm_vals_flat = torch.tensor(
                     slm_vals_flat, dtype=dtype, device=device, requires_grad=requires_grad
                 )
                 mask = torch.tensor(mask, dtype=dtype, device=device)
 
-        centers, cf = get_centers(
-            n_active_slm_pixels,
-            pixel_pitch=slm_config[SLMParam.PITCH],
-            return_color_filter=True,
-            first_color=first_color,
-        )
-        if return_slm_vals:
-            if pytorch:
-                cf = torch.tensor(cf).to(slm_vals_flat)
-            return cf * slm_vals_flat, centers
+        centers = get_centers(n_active_slm_pixels, pixel_pitch=slm_config[SLMParam.PITCH])
+        if SLMParam.COLOR_FILTER in slm_config.keys():
+            cf = get_color_filter(
+                slm_dim=n_active_slm_pixels,
+                color_filter=slm_config[SLMParam.COLOR_FILTER],
+                shift=shift,
+                flat=True,
+            )
+        else:
+            # monochrome
+            cf = None
 
         _height_pixel, _width_pixel = (slm_config[SLMParam.CELL_SIZE] / d1).astype(int)
 
@@ -139,8 +147,10 @@ def get_slm_mask(
                 _center_pixel[1] + 1 - np.floor(_width_pixel / 2).astype(int),
             )
 
-            # Let the possibility to have non-RGB filter
-            _rect = np.tile(cf[:, i][:, np.newaxis, np.newaxis], (1, _height_pixel, _width_pixel))
+            if cf is not None:
+                _rect = np.tile(cf[i][:, np.newaxis, np.newaxis], (1, _height_pixel, _width_pixel))
+            else:
+                _rect = np.ones((1, _height_pixel, _width_pixel))
 
             if pytorch:
                 _rect = torch.tensor(_rect).to(slm_vals_flat)
@@ -154,13 +164,24 @@ def get_slm_mask(
             )
 
     else:
-        mask = np.zeros((3,) + tuple(overlapping_mask_dim), dtype=np.float32)
-        for i in range(n_active_slm_pixels[0]):
-            mask[
-                (i + first_color) % 3, n_active_slm_pixels[0] - 1 - i, : n_active_slm_pixels[1]
-            ] = 1
-        shift = ((np.array(overlapping_mask_dim) - np.array(n_active_slm_pixels)) / 2).astype(int)
-        mask = np.roll(mask, shift=shift, axis=(1, 2))
+
+        if SLMParam.COLOR_FILTER in slm_config.keys():
+            cf = get_color_filter(
+                slm_dim=overlapping_mask_dim,
+                color_filter=slm_config[SLMParam.COLOR_FILTER],
+                shift=shift,
+                flat=False,
+            )
+        else:
+            cf = np.ones((n_color_filter, len(y), x.shape[1]), dtype=np.float32)
+        cf[n_active_slm_pixels[0] :, :, :] = 0
+        cf[:, n_active_slm_pixels[1] :, :] = 0
+        shift_center = (
+            (np.array(overlapping_mask_dim) - np.array(n_active_slm_pixels)) / 2
+        ).astype(int)
+        cf = np.roll(cf, shift=shift_center, axis=(0, 1))
+        cf = np.flipud(cf)  # so that indexing starts in top left
+        mask = np.transpose(cf, (2, 0, 1))
 
         if pytorch:
             mask = torch.tensor(mask.astype(np.float32), dtype=dtype, device=device)
@@ -259,7 +280,7 @@ def get_deadspace(slm_size, slm_dim, pixel_size):
     return dead_space / (np.array(slm_dim) - 1)
 
 
-def get_centers(slm_dim, pixel_pitch, return_color_filter=False, first_color=0):
+def get_centers(slm_dim, pixel_pitch, return_mesh=True):
     """
     Return
 
@@ -269,15 +290,12 @@ def get_centers(slm_dim, pixel_pitch, return_color_filter=False, first_color=0):
         Dimensions of SLM in number of pixels (Ny, Nx).
     pixel_pitch : array_like
         Spacing between each pixel along each dimension.
-    return_color_filter : bool
-        Whether to return color filter for each center.
-    first_color : int
-        Which color is first row. R:0, G:1, or B:2.
 
     Returns
     -------
     centers : :py:class:`~numpy.ndarray`
-        (Ny*Nx, 2) array of SLM pixel centers.
+        (Ny*Nx, 2) array of SLM pixel centers if `return_mesh.
+        (Nx, 2), (Ny, 2) array of SLM pixel centers otherwise.
     """
     assert len(slm_dim) == 2
     assert len(pixel_pitch) == 2
@@ -286,14 +304,69 @@ def get_centers(slm_dim, pixel_pitch, return_color_filter=False, first_color=0):
     centers_y -= np.mean(centers_y)
     centers_x = np.arange(slm_dim[1])[np.newaxis, ::-1] * pixel_pitch[1]
     centers_x -= np.mean(centers_x)
-    centers = np.array(np.meshgrid(centers_y, centers_x)).T.reshape(-1, 2)
-    if return_color_filter:
-        cf = np.zeros((3,) + tuple(slm_dim), dtype=np.float32)
-        for i in range(slm_dim[0]):
-            cf[(i + first_color) % 3, i] = 1
-        return centers, cf.reshape(3, -1)
+    if return_mesh:
+        return np.array(np.meshgrid(centers_y, centers_x)).T.reshape(-1, 2)
     else:
-        return centers
+        return centers_y, centers_x
+    # if return_color_filter:
+    #     cf = np.zeros((3,) + tuple(slm_dim), dtype=np.float32)
+    #     for i in range(slm_dim[0]):
+    #         cf[(i + first_color) % 3, i] = 1
+    #     return centers, cf.reshape(3, -1)
+    # else:
+    #     return centers
+
+
+def get_color_filter(slm_dim, color_filter, shift=0, flat=True, separable=False):
+    """
+    Replicate color filter for full SLM mask.
+
+    Parameters
+    ----------
+    slm_dim : array_like
+        Dimensions of SLM in number of pixels (Ny, Nx).
+    color_filter : array_like
+        Ny x Nx array of length-3 tuples.
+    shift : int
+        By how much to shift color filter (due to cropping).
+        TODO support 2D.
+    flat : bool
+        return as (Ny*Nx, 3)
+    separable : bool
+        return as separable filter. One of dimensions of color filter must be !
+    """
+
+    rep_y = int(np.ceil(slm_dim[0] / color_filter.shape[0]))
+    rep_x = int(np.ceil(slm_dim[1] / color_filter.shape[1]))
+
+    if not separable:
+        cf = np.tile(np.roll(color_filter, shift=shift), reps=(rep_y, rep_x, 1))
+        if flat:
+            return cf[: slm_dim[0], : slm_dim[1]].reshape(-1, 3).astype(np.float32)
+        else:
+            return cf[: slm_dim[0], : slm_dim[1]].astype(np.float32)
+
+    else:
+
+        if color_filter.shape[0] == 1:
+            cf_col = np.ones((slm_dim[0], 1, 3), dtype=np.float32)
+            cf_row = np.tile(np.roll(color_filter, shift=shift), reps=(1, rep_x, 1))
+        elif color_filter.shape[1] == 1:
+            cf_col = np.tile(np.roll(color_filter, shift=shift), reps=(rep_y, 1, 1))
+            cf_row = np.ones((1, slm_dim[1], 3), dtype=np.float32)
+        else:
+            raise ValueError("Color filter must have a dimension equal to 1 for separability.")
+
+        # import pudb; pudb.set_trace()
+
+        return cf_col, cf_row
+
+    # import pudb; pudb.set_trace()
+
+    # cf = np.zeros((3,) + tuple(slm_dim), dtype=np.float32)
+    # for i in range(slm_dim[0]):
+    #     cf[(i + first_color) % 3, i] = 1
+    # return cf.reshape(3, -1)
 
 
 def get_centers_separable(slm_dim, pixel_pitch, return_color_filter=False, first_color=0):
@@ -347,7 +420,8 @@ def get_slm_mask_separable(
     pytorch=False,
     device="cuda",
     dtype=None,
-    first_color=0,
+    shift=0,
+    # first_color=0,
     return_slm_vals=False,
     requires_grad=True,
 ):
@@ -386,6 +460,11 @@ def get_slm_mask_separable(
     d1 = np.array(overlapping_mask_size) / target_dim
     x, y = sample_points(N=target_dim, delta=d1)
 
+    if SLMParam.COLOR_FILTER in slm_config.keys():
+        n_color_filter = np.prod(slm_config["color_filter"].shape[:2])
+    else:
+        n_color_filter = 1
+
     # load mask pattern
     if slm_vals is not None:
         """use provided values"""
@@ -420,12 +499,12 @@ def get_slm_mask_separable(
     # create mask
     if deadspace:
         if torch.is_tensor(slm_vals[0]):
-            _mask_col = torch.zeros((3, y.shape[0], 1), dtype=dtype, device=device)
-            _mask_row = torch.zeros((3, 1, x.shape[1]), dtype=dtype, device=device)
+            _mask_col = torch.zeros((n_color_filter, y.shape[0], 1), dtype=dtype, device=device)
+            _mask_row = torch.zeros((n_color_filter, 1, x.shape[1]), dtype=dtype, device=device)
 
         else:
-            _mask_col = np.zeros((3, y.shape[0], 1), dtype=np.float32)
-            _mask_row = np.zeros((3, 1, x.shape[1]), dtype=np.float32)
+            _mask_col = np.zeros((n_color_filter, y.shape[0], 1), dtype=np.float32)
+            _mask_row = np.zeros((n_color_filter, 1, x.shape[1]), dtype=np.float32)
 
             if pytorch:
                 slm_vals[0] = torch.tensor(
@@ -437,12 +516,26 @@ def get_slm_mask_separable(
                 _mask_col = torch.tensor(_mask_col, dtype=dtype, device=device)
                 _mask_row = torch.tensor(_mask_row, dtype=dtype, device=device)
 
-        centers, cf = get_centers_separable(
-            n_active_slm_pixels,
-            pixel_pitch=slm_config[SLMParam.PITCH],
-            return_color_filter=True,
-            first_color=first_color,
+        # centers, cf = get_centers_separable(
+        #     n_active_slm_pixels,
+        #     pixel_pitch=slm_config[SLMParam.PITCH],
+        #     return_color_filter=True,
+        #     first_color=first_color,
+        # )
+        centers = get_centers(
+            n_active_slm_pixels, pixel_pitch=slm_config[SLMParam.PITCH], return_mesh=False
         )
+        if SLMParam.COLOR_FILTER in slm_config.keys():
+            cf = get_color_filter(
+                slm_dim=n_active_slm_pixels,
+                color_filter=slm_config[SLMParam.COLOR_FILTER],
+                shift=shift,
+                flat=False,
+                separable=True,
+            )
+        else:
+            cf = None
+
         if return_slm_vals:
             print("test")
             if pytorch:
@@ -460,7 +553,7 @@ def get_slm_mask_separable(
             ).astype(int)
 
             # Let the possibility to have non-RGB filter
-            _rect = np.tile(cf[0][:, i][:, np.newaxis], (1, _height_pixel, 1))
+            _rect = np.tile(cf[0][i, 0][:, np.newaxis, np.newaxis], (1, _height_pixel, 1))
 
             if pytorch:
                 _rect = torch.tensor(_rect).to(slm_vals[0])
@@ -478,7 +571,7 @@ def get_slm_mask_separable(
                 + 1
             )
             # Let the possibility to have non-RGB filter
-            _rect = np.tile(cf[1][:, 0, i][:, np.newaxis, np.newaxis], (1, 1, _width_pixel))
+            _rect = np.tile(cf[1][0, i][:, np.newaxis, np.newaxis], (1, 1, _width_pixel))
 
             if pytorch:
                 _rect = torch.tensor(_rect).to(slm_vals[1])
