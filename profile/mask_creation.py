@@ -8,10 +8,10 @@ from waveprop.util import sample_points, plot2d
 
 
 n_trials = 50
-deadspace = True  # False is failing
+deadspace = True
 crop_fact = 0.8
-down = 6
-pytorch = True  # check False
+down = 8
+pytorch = True
 device = "cuda"
 shift = 1
 
