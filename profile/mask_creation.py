@@ -71,6 +71,7 @@ if torch.is_tensor(mask):
 else:
     plot2d(x1.squeeze(), y1.squeeze(), mask, title="Full slm")
 
+_slm_vals = slm_vals[0] @ slm_vals[1]
 start_time = time.perf_counter()
 for _ in range(n_trials):
     mask = get_slm_mask(
@@ -78,7 +79,7 @@ for _ in range(n_trials):
         sensor_config=sensor_config,
         crop_fact=crop_fact,
         target_dim=target_dim,
-        slm_vals=slm_vals[0] @ slm_vals[1],
+        slm_vals=_slm_vals,
         deadspace=deadspace,
         pytorch=pytorch,
         device=device,
