@@ -7,24 +7,13 @@ import matplotlib.pyplot as plt
 from waveprop.util import sample_points, plot2d
 
 
-n_trials = 1
-deadspace = False  # False is failing
+n_trials = 50
+deadspace = True  # False is failing
 crop_fact = 0.8
 down = 6
-pytorch = False  # check False
-device = "cpu"
+pytorch = True  # check False
+device = "cuda"
 shift = 1
-
-"""
-TODO : unit test, and with shift
-deadspace, pytorch
-
-True, True: PASS
-False, True: PASS
-True, False: PASS
-False, False: PASS
-
-"""
 
 
 if pytorch:

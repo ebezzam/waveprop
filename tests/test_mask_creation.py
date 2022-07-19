@@ -2,6 +2,7 @@ import torch
 import numpy as np
 from waveprop.devices import SLMOptions, slm_dict, SensorOptions, SensorParam, sensor_dict
 from waveprop.slm import get_active_pixel_dim, get_slm_mask, get_slm_mask_separable
+import os
 
 
 def test_separable():
@@ -98,7 +99,11 @@ def test_separable():
                             np.testing.assert_almost_equal(mask, mask_sep)
 
 
-def test_file_input(fp):
+def test_file_input(fp=None):
+
+    if fp is None:
+        dirname = os.path.dirname(__file__)
+        fp = os.path.join(dirname, "../data/adafruit_pattern_20200802.npy")
 
     down = 6
     crop_fact = 0.8
@@ -162,4 +167,4 @@ if __name__ == "__main__":
     test_separable()
 
     print("\n----- Test file input -----")
-    test_file_input("data/adafruit_pattern_20200802.npy")
+    test_file_input()
