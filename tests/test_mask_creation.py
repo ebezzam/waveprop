@@ -39,13 +39,13 @@ def test_separable():
 
         for pytorch in [False, True]:
 
+            device_vals = ["cpu"]
             if pytorch:
-
                 dtype = torch.float32
-                device_vals = ["cuda", "cpu"]
+                if torch.cuda.is_available():
+                    device_vals = ["cuda", "cpu"]
             else:
                 dtype = np.float32
-                device_vals = ["cpu"]
 
             for device in device_vals:
 
@@ -119,13 +119,14 @@ def test_file_input(fp=None):
 
         for pytorch in [False, True]:
 
+            device_vals = ["cpu"]
             if pytorch:
 
                 dtype = torch.float32
-                device_vals = ["cuda", "cpu"]
+                if torch.cuda.is_available():
+                    device_vals = ["cuda", "cpu"]
             else:
                 dtype = np.float32
-                device_vals = ["cpu"]
 
             for device in device_vals:
 

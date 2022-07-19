@@ -63,7 +63,7 @@ def spherical_prop(
 
         x1, y1 = sample_points(N=in_shape, delta=d1)
         k = (2 * math.pi / wv)[:, np.newaxis, np.newaxis]
-        curvature = np.sqrt(x1 ** 2 + y1 ** 2 + dz ** 2)[np.newaxis, :]
+        curvature = np.sqrt(x1**2 + y1**2 + dz**2)[np.newaxis, :]
         psf = np.exp(1j * k * curvature).astype(ctype_np)
         if is_torch:
             psf = torch.tensor(psf, dtype=ctype, device=device)

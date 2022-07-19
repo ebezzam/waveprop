@@ -39,7 +39,7 @@ def fraunhofer(u_in, wv, d1, dz):
     # output distribution
     u_out = (
         np.exp(1j * k * dz)
-        * np.exp(1j * k / (2 * dz) * (x2 ** 2 + y2 ** 2))
+        * np.exp(1j * k / (2 * dz) * (x2**2 + y2**2))
         / (1j * wv * dz)
         * ft2(u_in, d1)
     )
@@ -70,10 +70,10 @@ def fraunhofer_prop_circ_ap(wv, dz, diam, x, y):
     k = 2 * np.pi / wv
     return (
         np.exp(1j * k * dz)
-        * np.exp(1j * k / (2 * dz) * (x ** 2 + y ** 2))
+        * np.exp(1j * k / (2 * dz) * (x**2 + y**2))
         / (1j * wv * dz)
-        * (diam ** 2 * np.pi / 4)
-        * jinc(diam * np.sqrt(x ** 2 + y ** 2) / (wv * dz))
+        * (diam**2 * np.pi / 4)
+        * jinc(diam * np.sqrt(x**2 + y**2) / (wv * dz))
     )
 
 
@@ -104,7 +104,7 @@ def fraunhofer_prop_rect_ap(wv, dz, x, y, lx, ly=None):
     k = 2 * np.pi / wv
     return (
         np.exp(1j * k * dz)
-        * np.exp(1j * k / (2 * dz) * (x ** 2 + y ** 2))
+        * np.exp(1j * k / (2 * dz) * (x**2 + y**2))
         / (1j * wv * dz)
         * lx
         * ly
