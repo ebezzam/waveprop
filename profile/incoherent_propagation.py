@@ -22,7 +22,7 @@ from waveprop.fresnel import fresnel_conv, fresnel_one_step
 import matplotlib.pyplot as plt
 
 
-slm_pattern_fp = "data/slm_pattern_20200802.npy"
+slm_pattern_fp = "data/adafruit_pattern_20200802.npy"
 crop_fact = 0.7
 device = "cuda"
 scene2mask = 40e-2
@@ -69,7 +69,7 @@ for pytorch in [True, False]:
                 sensor_config=sensor_config,
                 crop_fact=crop_fact,
                 target_dim=target_dim,
-                slm_pattern=slm_pattern_fp,
+                slm_vals=slm_pattern_fp,
                 deadspace=deadspace,
                 pytorch=pytorch,
                 device=device,

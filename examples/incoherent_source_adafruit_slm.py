@@ -1,6 +1,6 @@
 """
 python examples/incoherent_source_adafruit_slm.py --deadspace --pytorch \
---slm_pattern data/slm_pattern_20200802.npy
+--slm_pattern data/adafruit_pattern_20200802.npy
 
 # TODO : rotation of SLM
 
@@ -63,7 +63,7 @@ from waveprop.devices import SLMOptions, slm_dict, SensorOptions, SensorParam, s
 @click.option("--d", type=float, default=0.4, help="Scene to SLM/mask distance in meters.")
 @click.option("--z", type=float, default=0.004, help="SLM/mask to sensor distance in meters.")
 @click.option(
-    "--slm_pattern",
+    "--slm_vals",
     type=str,
     help="Filepath to SLM pattern (optional), otherwise randomly generate one.",
 )
@@ -102,7 +102,7 @@ def incoherent_simulation(
     crop_fact,
     d,
     z,
-    slm_pattern,
+    slm_vals,
     pattern_shift,
     shift,
     fresnel,
@@ -112,8 +112,6 @@ def incoherent_simulation(
     assert crop_fact < 1
     assert d > 0
     assert z > 0
-    if slm_pattern is not None:
-        assert os.path.exists(slm_pattern)
 
     # SLM parameters (Adafruit screen)
     slm_config = slm_dict[SLMOptions.ADAFRUIT.value]
@@ -139,6 +137,14 @@ def incoherent_simulation(
         sensor_crop=crop_fact,
         slm_config=slm_config,
     )
+
+    if slm_vals is not None:
+        assert os.path.exists(slm_vals)
+    else:
+        if deadspace:
+            slm_vals = np.random.rand(*n_active_slm_pixels).astype(np.float32)
+        else:
+            slm_vals = np.random.rand(*overlapping_mask_dim).astype(np.float32)
 
     print("Sensor dimensions [m] :", sensor_config[SensorParam.SIZE])
     print("Overlapping SLM dimensions [m] :", overlapping_mask_size)
@@ -190,7 +196,7 @@ def incoherent_simulation(
         sensor_config=sensor_config,
         crop_fact=crop_fact,
         target_dim=target_dim,
-        slm_pattern=slm_pattern,
+        slm_vals=slm_vals,
         deadspace=deadspace,
         pattern_shift=pattern_shift,
         pytorch=pytorch,

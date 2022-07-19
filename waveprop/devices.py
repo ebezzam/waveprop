@@ -14,6 +14,7 @@ class SLMOptions(Enum):
 
 
 class SLMParam:
+    NAME = "name"
     CELL_SIZE = "cell_dim"
     SHAPE = "shape"
     SIZE = "size"
@@ -27,6 +28,7 @@ slm_dict = {
     # 1.8 inch RGB display by Adafruit: https://learn.adafruit.com/1-8-tft-display/overview
     # datasheet: https://cdn-shop.adafruit.com/datasheets/JD-T1800.pdf
     SLMOptions.ADAFRUIT.value: {
+        SLMParam.NAME: SLMOptions.ADAFRUIT,
         SLMParam.CELL_SIZE: np.array([0.06e-3, 0.18e-3]),  # RGB sub-pixel
         SLMParam.SHAPE: np.array([128 * 3, 160]),
         SLMParam.SIZE: np.array([28.03e-3, 35.04e-3]),

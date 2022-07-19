@@ -21,7 +21,7 @@ from waveprop.rs import angular_spectrum
 import matplotlib.pyplot as plt
 
 
-slm_pattern_fp = "data/slm_pattern_20200802.npy"
+slm_pattern_fp = "data/adafruit_pattern_20200802.npy"
 crop_fact = 0.7
 device = "cuda"
 mask2sensor = 4e-3
@@ -65,7 +65,7 @@ for pytorch in [True, False]:
                 sensor_config=sensor_config,
                 crop_fact=crop_fact,
                 target_dim=target_dim,
-                slm_pattern=slm_pattern_fp,
+                slm_vals=slm_pattern_fp,
                 deadspace=True,
                 pytorch=pytorch,
                 device=device,
@@ -102,7 +102,7 @@ for pytorch in [True, False]:
                 sensor_config=sensor_config,
                 crop_fact=crop_fact,
                 target_dim=target_dim,
-                slm_pattern=slm_pattern_fp,
+                slm_vals=slm_pattern_fp,
                 deadspace=True,
                 pytorch=pytorch,
                 device=device,
