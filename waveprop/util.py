@@ -125,7 +125,7 @@ def circ(x, y, diam):
     diam : float
         Diameter [m].
     """
-    r = np.sqrt(x ** 2 + y ** 2)
+    r = np.sqrt(x**2 + y**2)
     z = (r < diam / 2).astype(float)
     z[r == diam / 2] = 0.5
     return z
