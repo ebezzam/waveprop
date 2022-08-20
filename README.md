@@ -1,4 +1,44 @@
-# waveprop
+# waveprop: Diffraction-based optical wave propagation simulator with PyTorch support
+
+Python simulator for optical wave propagation based on scalar diffraction theory. Multiple models are 
+supported based on the desired propagation distance / complexity. PyTorch support enables GPU acceleration
+and end-to-endtraining of arbitrary masks.
+
+![square](/data/square_poly.gif)
+
+## Features
+
+- Multiple scalar diffraction models: Fraunhofer, Fresnel, angular spectrum method, direct integration.
+- Polychromatic through CIE color matching functions.
+- Off-axis propagation and rescaling.
+- PyTorch support (for GPU acceleration and end-to-end training).
+- Arbitrary amplitude or phase masks.
+- Spatial light modulator (SLM) simulator which incorporates deadpsace and color filter.
+
+## Installation
+
+Local install
+```sh
+# recommended to create virtual environment
+conda create -n waveprop python=3.9
+conda activate waveprop
+
+# install
+pip install -e .
+pip install numpy scipy matplotlib pyffs
+conda install -c conda-forge opencv
+
+# for PyTorch, check docs for appropriate command: https://pytorch.org/
+conda install pytorch torchvision torchaudio cudatoolkit=11.3 -c pytorch
+
+# for some examples
+pip install imageio progressbar
+
+# run tests
+pytest tests/
+```
+
+## Examples
 
 Scripts and functions to simulate free-space optical propagation. 
 
@@ -29,21 +69,6 @@ output sampling.
   
 Note that dimensions `y` corresponds to the first dimension (rows) while `x`
 corresponds to the second dimension (columns).
-
-## Local install
-
-```sh
-# recommended to create virtual environment
-virtualenv -p python3 waveprop_env
-source waveprop_env/bin/activate
-
-# install
-pip install -e .
-git+https://github.com/ebezzam/pyFFS.git@task/add_examples#egg=pyFFS
-
-# run tests
-pytest tests/
-```
 
 ## Literature and references
 
