@@ -189,6 +189,7 @@ def angular_spectrum_np(
     weights=None,
     dtype=None,
     return_H=False,
+    pad=True,
 ):
     """
     Band-Limited Angular Spectrum Method for Numerical Simulation of Free-Space Propagation in Far
@@ -264,9 +265,12 @@ def angular_spectrum_np(
     #     in_shift = [in_shift, in_shift]
     # assert len(in_shift) == 2
 
-    # zero pad to simulate linear convolution
-    Ny, Nx = u_in.shape
-    u_in_pad = zero_pad(u_in)
+    if pad:
+        # zero pad to simulate linear convolution
+        Ny, Nx = u_in.shape
+        u_in_pad = zero_pad(u_in)
+    else:
+        u_in_pad = u_in
 
     # size of the padded field
     Ny_pad, Nx_pad = u_in_pad.shape
@@ -347,12 +351,13 @@ def angular_spectrum_np(
         u_out = ift2(U2, delta_f=[dfY, dfX])
 
         # remove padding
-        y_pad_edge = int(Ny // 2)
-        x_pad_edge = int(Nx // 2)
-        u_out = u_out[
-            y_pad_edge : y_pad_edge + Ny,
-            x_pad_edge : x_pad_edge + Nx,
-        ]
+        if pad:
+            y_pad_edge = int(Ny // 2)
+            x_pad_edge = int(Nx // 2)
+            u_out = u_out[
+                y_pad_edge : y_pad_edge + Ny,
+                x_pad_edge : x_pad_edge + Nx,
+            ]
 
         # output coordinates
         x2, y2 = sample_points(N=[Ny, Nx], delta=d1, shift=out_shift)
@@ -452,6 +457,7 @@ def angular_spectrum(
     H_exp=None,
     U1=None,
     device=None,
+    pad=True,
 ):
     """
 
@@ -523,9 +529,12 @@ def angular_spectrum(
         dtype = u_in.dtype
     ctype, ctype_np = _get_dtypes(dtype, is_torch)
 
-    # pad input to linearize convolution
     Ny, Nx = u_in.shape
-    u_in_pad = zero_pad(u_in)
+    # pad input to linearize convolution
+    if pad:
+        u_in_pad = zero_pad(u_in)
+    else:
+        u_in_pad = u_in
 
     # size of the padded field
     Ny_pad, Nx_pad = u_in_pad.shape
@@ -654,7 +663,8 @@ def angular_spectrum(
         u_out = ift2(U2, delta_f=[dfY, dfX])
 
         # remove padding
-        u_out = crop(u_out, shape=(Ny, Nx), topleft=(int(Ny // 2), int(Nx // 2)))
+        if pad:
+            u_out = crop(u_out, shape=(Ny, Nx), topleft=(int(Ny // 2), int(Nx // 2)))
 
         # output coordinates
         x2, y2 = sample_points(N=[Ny, Nx], delta=d1, shift=out_shift)

@@ -2,9 +2,9 @@
 
 Python simulator for optical wave propagation based on scalar diffraction theory. Multiple models are 
 supported based on the desired propagation distance / complexity. PyTorch support enables GPU acceleration
-and end-to-endtraining of arbitrary masks.
+and end-to-end training of arbitrary apertures.
 
-![square](/data/square_poly.gif)
+![lcav](/data/lcav.gif)
 
 ## Features
 
@@ -43,6 +43,7 @@ pytest tests/
 Scripts and functions to simulate free-space optical propagation. 
 
 In the `examples` folder:
+- `holography.py`: determing phase pattern for holography and propagating over distances with angular spectrum method.
 - `adafruit_slm.py`: polychromatric simulation of amplitude SLM with or without deadspace.
 - `adafruit_slm_mono_pytorch.py`: monochromatric simulation of amplitude SLM with PyTorch support.
 - `square_ap_video.py`: to compare various propagation approaches while varying the distance.
