@@ -25,14 +25,12 @@ conda activate waveprop
 
 # install
 pip install -e .
-pip install numpy scipy matplotlib pyffs
-conda install -c conda-forge opencv
 
-# for PyTorch, check docs for appropriate command: https://pytorch.org/
-conda install pytorch torchvision torchaudio cudatoolkit=11.3 -c pytorch
+# for CUDA, check docs for appropriate command: https://pytorch.org/
+conda install pytorch torchvision cudatoolkit=11.3 -c pytorch
 
 # for some examples
-pip install imageio progressbar
+pip install joblib imageio
 
 # run tests
 pytest tests/

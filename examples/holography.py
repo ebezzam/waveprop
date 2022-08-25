@@ -65,8 +65,9 @@ target_amp = np.pad(target_amp, ((pad[1], pad[1]), (pad[0], pad[0])), "constant"
 
 # get phase
 start_time = time.time()
+print(f"\nApplying Gerchberg-Saxton for {n_iter} iterations...")
 source_phase = gerchberg_saxton(target_amp=target_amp, n_iter=n_iter)
-print(f"Gerchberg-Saxton computation time: {time.time() - start_time}")
+print(f"-- Computation time: {time.time() - start_time}")
 
 
 """ Propagate """
@@ -130,7 +131,7 @@ def simulate(dz):
 # parallelize propagation
 start_time = time.time()
 Parallel(n_jobs=n_jobs)(delayed(simulate)(dz) for dz in dz_vals)
-print(f"Propagation computation time: {time.time() - start_time}")
+print(f"-- Computation time: {time.time() - start_time}")
 
 
 """ Create GIF """
@@ -140,13 +141,13 @@ for dz in dz_vals:
     filenames.append(filename)
     if dz == f_lens:
         for _ in range(fps):
-            frames.append(imageio.imread(filename))
+            frames.append(imageio.v2.imread(filename))
     else:
-        frames.append(imageio.imread(filename))
+        frames.append(imageio.v2.imread(filename))
 
 
 gif_fp = f"{bn}.gif"
 imageio.mimsave(gif_fp, frames, "GIF", fps=fps)
 for filename in set(filenames):
     os.remove(filename)
-print(f"GIF saved to : {gif_fp}")
+print(f"\nGIF saved to : {gif_fp}")
