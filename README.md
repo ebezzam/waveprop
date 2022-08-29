@@ -1,7 +1,7 @@
-# waveprop: Diffraction-based optical wave propagation simulator with PyTorch support
+# waveprop: Diffraction-based wave propagation simulator with PyTorch support
 
-Python simulator for optical wave propagation based on scalar diffraction theory. Multiple models are 
-supported based on the desired propagation distance / complexity. PyTorch support enables GPU acceleration
+Python simulator for optical wave propagation based on scalar diffraction theory. Multiple propagation models are 
+supported, with the desired propagation distance / complexity determining which one may be best. PyTorch support enables GPU acceleration
 and end-to-end training of arbitrary apertures.
 
 ![lcav](/data/lcav.gif)
@@ -29,7 +29,7 @@ pip install -e .
 # for CUDA, check docs for appropriate command: https://pytorch.org/
 conda install pytorch torchvision cudatoolkit=11.3 -c pytorch
 
-# for some examples
+# for some examples (e.g. holography.py)
 pip install joblib imageio
 
 # run tests

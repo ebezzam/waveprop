@@ -31,6 +31,10 @@ N = 400  # number of grid points per size
 pad = (N // 2, N // 2)  # linearize convolution
 n_iter = 100
 
+# -- plotting param
+fps = 10
+gamma = 2.2
+
 # -- propagation param
 device = "cpu"  # None to automatically detect if GPU and use
 N_sim = 2400
@@ -40,7 +44,7 @@ pattern_size = 10e-3
 f_lens = 50e-2
 wv = 532 * 1e-9
 gain = 0.15
-dz_vals = np.around(np.arange(start=0, stop=100, step=5) * 1e-2, decimals=2)
+dz_vals = np.around(np.arange(start=0, stop=100, step=1) * 1e-2, decimals=2)
 n_jobs = 15
 
 # # shorter/smaller propagation
@@ -51,10 +55,6 @@ n_jobs = 15
 # gain = 0.15
 # dz_vals = np.around(np.arange(start=0, stop=100, step=5) * 1e-3, decimals=3)
 # n_jobs = 15
-
-# -- plotting param
-fps = 10
-gamma = 2.2
 
 bn = os.path.basename(fp).split(".")[0]
 
