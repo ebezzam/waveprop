@@ -17,9 +17,13 @@ and end-to-end training of arbitrary apertures.
 
 ## Installation
 
-Local install
 ```sh
-# recommended to create virtual environment
+pip install waveprop
+```
+
+To develop locally and/or play with examples, we recommend the following steps:
+```sh
+# create virtual environment
 conda create -n waveprop python=3.9
 conda activate waveprop
 
@@ -35,6 +39,24 @@ pip install joblib imageio
 # run tests
 pytest tests/
 ```
+
+# New release and upload to PyPi
+-----------
+From master branch of original repo, using the appropriate value for `X.X.X`:
+
+```
+# Create tag and upload
+git tag -a vX.X.X -m "Description."
+git push origin vX.X.X
+
+# Create package and upload to Pypi
+python setup.py sdist
+twine upload dist/waveprop-X.X.X.tar.gz   
+```
+
+You will need a username and password for uploading to PyPi.
+
+Finally, [on GitHub](https://github.com/ebezzam/waveprop/releases) set the new tag as the latest release by pressing on it, at top right selecting "Edit tag", and at the bottom pressing "Publish release".
 
 ## Examples
 
@@ -142,3 +164,7 @@ Compare / mention complexity of different approaches
     - Monochromatic: https://github.com/rafael-fuente/Diffraction-Simulations--Angular-Spectrum-Method/blob/5b3610643b97ab6b81c80ef4c8aa5b0d9501f314/diffractsim/monochromatic_simulator.py#L191
     - Polychromatic: https://github.com/rafael-fuente/Diffraction-Simulations--Angular-Spectrum-Method/blob/5b3610643b97ab6b81c80ef4c8aa5b0d9501f314/diffractsim/polychromatic_simulator.py#L190
   
+
+## License
+
+MIT
