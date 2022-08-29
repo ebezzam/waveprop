@@ -13,7 +13,7 @@ and end-to-end training of arbitrary apertures.
 - Off-axis propagation and rescaling.
 - PyTorch support (for GPU acceleration and end-to-end training).
 - Arbitrary amplitude or phase masks.
-- Spatial light modulator (SLM) simulator which incorporates deadpsace and color filter.
+- Spatial light modulator (SLM) simulator which incorporates deadspace and color filter.
 
 ## Installation
 
@@ -34,15 +34,15 @@ pip install -e .
 conda install pytorch torchvision cudatoolkit=11.3 -c pytorch
 
 # for some examples (e.g. holography.py)
-pip install joblib imageio
+pip install joblib imageio click
 
 # run tests
 pytest tests/
 ```
 
 # New release and upload to PyPi
------------
-From master branch of original repo, using the appropriate value for `X.X.X`:
+
+From master branch of original repo, and using the appropriate value for `X.X.X`:
 
 ```
 # Create tag and upload
@@ -59,6 +59,35 @@ You will need a username and password for uploading to PyPi.
 Finally, [on GitHub](https://github.com/ebezzam/waveprop/releases) set the new tag as the latest release by pressing on it, at top right selecting "Edit tag", and at the bottom pressing "Publish release".
 
 ## Examples
+
+In the [`examples`] folder are various scripts demonstrating the features of `waveprop`. It is recommended to run them from the repository root, as shown below.
+
+#### Comparing propagation models
+
+#### Polychromatic simulation
+
+#### Off-axis and rescaling
+
+#### PyTorch support
+
+#### Spatial light modulator
+
+#### Holography
+
+The above GIF showing the propagation of a holography pattern was generated with the following command:
+
+```
+python examples/holography.py --target data/lcav.png --invert
+```
+
+The file path can be set to any local path, however the target will be reshaped to a square.
+
+If only interested in the holography pattern at a single distance, e.g. the focal plane, the following command can be run, which will produce a GIF with a single image
+
+```
+python examples/holography.py --target data/lcav.png --invert --f_lens 0.5 --z_start 0.5 --nz 1
+```
+
 
 Scripts and functions to simulate free-space optical propagation. 
 
