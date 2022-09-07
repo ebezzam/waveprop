@@ -56,7 +56,7 @@ twine upload dist/waveprop-X.X.X.tar.gz
 
 You will need a username and password for uploading to PyPi.
 
-Finally, [on GitHub](https://github.com/ebezzam/waveprop/releases) set the new tag as the latest release by pressing on it, at top right selecting "Edit tag", and at the bottom pressing "Publish release".
+Finally, [on GitHub](https://github.com/ebezzam/waveprop/tags) set the new tag as the latest release by pressing the three dots to the right and selecting "Edit release, at top right selecting "Edit tag", and then publishing it!
 
 ## Examples
 
