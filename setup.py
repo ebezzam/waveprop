@@ -29,4 +29,5 @@ setuptools.setup(
         "pyffs",
         "progressbar",
     ],
+    include_package_data=True,
 )
