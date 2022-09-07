@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="waveprop",
-    version="0.0.1",
+    version="0.0.2",
     author="Eric Bezzam",
     author_email="ebezzam@gmail.com",
     description="Functions and scripts to simulate free-space optical wave propagation.",
