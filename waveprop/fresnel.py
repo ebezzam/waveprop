@@ -1,7 +1,8 @@
+from turtle import pu
 import numpy as np
 import torch
 from scipy.special import fresnel
-from waveprop.util import sample_points, ft2, ift2, _get_dtypes, zero_pad, crop
+from waveprop.util import sample_points, ft2, ift2, _get_dtypes, zero_pad, zero_pad_2d, crop
 
 
 def fresnel_one_step(u_in, wv, d1, dz):
@@ -87,14 +88,25 @@ def fresnel_two_step(u_in, wv, d1, d2, dz):
     return fresnel_one_step(u_itm, wv, d1a, dz2)
 
 
-def fresnel_conv(u_in, wv, d1, dz, device=None, dtype=None, d2=None, pad=True):
+def fresnel_conv(
+    wv,
+    d1,
+    dz,
+    device=None,
+    dtype=None,
+    d2=None,
+    pad=True,
+    u_in=None,
+    u_in_x=None,
+    u_in_y=None,
+):
     """
     Fresnel numerical computation (through convolution perspective) that gives
     control over output sampling but at a higher cost of two FFTs.
 
     Based off of Listing 6.5 of "Numerical Simulation of Optical Wave
-    Propagation with Examples in MATLAB" (2010). Added zero-padding and support
-    for PyTorch.
+    Propagation with Examples in MATLAB" (2010). Added zero-padding, support
+    for PyTorch, and support for separability.
 
     NB: only works for square sampling, as non-square would result in different
     magnification factors.
@@ -120,7 +132,31 @@ def fresnel_conv(u_in, wv, d1, dz, device=None, dtype=None, d2=None, pad=True):
         Data type to use.
 
     """
-    if torch.is_tensor(u_in) or torch.is_tensor(dz):
+
+    # must be square sampling
+    assert isinstance(d1, float)
+    if d2 is None:
+        d2 = d1
+    else:
+        assert isinstance(d2, float)
+
+    # check inputs, TODO make common func with asm
+    if u_in_x is not None or u_in_y is not None:
+        # separable
+        separable = True
+        assert u_in_x is not None
+        assert u_in_y is not None
+        assert u_in_x.shape[0] == 1
+        assert u_in_y.shape[1] == 1
+    else:
+        assert u_in is not None
+        separable = False
+    if (
+        torch.is_tensor(u_in)
+        or torch.is_tensor(dz)
+        or torch.is_tensor(u_in_x)
+        or torch.is_tensor(u_in_y)
+    ):
         is_torch = True
     else:
         is_torch = False
@@ -128,22 +164,40 @@ def fresnel_conv(u_in, wv, d1, dz, device=None, dtype=None, d2=None, pad=True):
         assert device is not None, "Set device for PyTorch"
         if torch.is_tensor(u_in):
             u_in = u_in.to(device)
+        if torch.is_tensor(u_in_x):
+            u_in_x = u_in_x.to(device)
+            assert torch.is_tensor(u_in_y)
+        if torch.is_tensor(u_in_y):
+            u_in_y = u_in_y.to(device)
+            assert torch.is_tensor(u_in_x)
         if torch.is_tensor(dz):
             dz = dz.to(device)
-    assert isinstance(d1, float)
-    if d2 is None:
-        d2 = d1
-    else:
-        assert isinstance(d2, float)
     if dtype is None:
-        dtype = u_in.dtype
+        if separable:
+            dtype = u_in_x.dtype
+        else:
+            dtype = u_in.dtype
     ctype, ctype_np = _get_dtypes(dtype, is_torch)
 
+    # pad input to linearize convolution
     if pad:
-        N_orig = np.array(u_in.shape)
-        u_in = zero_pad(u_in)
-    N = np.array(u_in.shape)
+        if separable:
+            N_orig = np.array([u_in_y.shape[0], u_in_x.shape[1]])
+
+            u_in_y = zero_pad(u_in_y, axis=0)
+            u_in_x = zero_pad(u_in_x, axis=1)
+        else:
+
+            N_orig = np.array(u_in.shape)
+            u_in = zero_pad_2d(u_in)
+    if separable:
+        N = np.array([u_in_y.shape[0], u_in_x.shape[1]])
+    else:
+        N = np.array(u_in.shape)
     k = 2 * np.pi / wv
+
+    if separable:
+        import pudb; pudb.set_trace()
 
     # source coordinates
     x1, y1 = sample_points(N=N, delta=d1)
