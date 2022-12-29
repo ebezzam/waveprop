@@ -457,6 +457,7 @@ def angular_spectrum(
     u_in=None,
     u_in_x=None,
     u_in_y=None,
+    pad=True
 ):
     """
 

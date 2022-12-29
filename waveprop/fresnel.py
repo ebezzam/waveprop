@@ -197,7 +197,7 @@ def fresnel_conv(
     k = 2 * np.pi / wv
 
     if separable:
-        import pudb; pudb.set_trace()
+        raise NotImplementedError
 
     # source coordinates
     x1, y1 = sample_points(N=N, delta=d1)
