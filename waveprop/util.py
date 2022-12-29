@@ -1,5 +1,6 @@
 import numpy as np
-from numpy.fft import fftshift, fft2, ifftshift, ifft2, fft, ifft
+import cv2
+from numpy.fft import fftshift, fft2, ifftshift, ifft2
 import torch
 from scipy.special import j1
 import matplotlib.pyplot as plt
@@ -137,7 +138,7 @@ def circ(x, y, diam):
     diam : float
         Diameter [m].
     """
-    r = np.sqrt(x ** 2 + y ** 2)
+    r = np.sqrt(x**2 + y**2)
     z = (r < diam / 2).astype(float)
     z[r == diam / 2] = 0.5
     return z
@@ -444,10 +445,13 @@ def zero_pad(u_in, axis):
         return np.pad(u_in, pad_width=pad_width, mode="constant", constant_values=0)
 
 
-def zero_pad_2d(u_in):
+def zero_pad_2d(u_in, pad=None):
     Ny, Nx = u_in.shape
-    y_pad_edge = int(Ny // 2)
-    x_pad_edge = int(Nx // 2)
+    if pad is None:
+        y_pad_edge = int(Ny // 2)
+        x_pad_edge = int(Nx // 2)
+    else:
+        y_pad_edge, x_pad_edge = pad
 
     if torch.is_tensor(u_in):
         # (left, right, top, bottom))
@@ -465,3 +469,39 @@ def zero_pad_2d(u_in):
             (x_pad_edge + 1 if Nx % 2 else x_pad_edge, x_pad_edge),
         )
         return np.pad(u_in, pad_width=pad_width, mode="constant", constant_values=0)
+
+
+def resize(img, factor=None, shape=None, interpolation=cv2.INTER_CUBIC):
+    """
+    Resize by given factor or to a given shape.
+
+    TODO support for PyTorch
+
+    Parameters
+    ----------
+    img :py:class:`~numpy.ndarray`
+        Downsampled image.
+    factor : int or float
+        Resizing factor.
+    shape : tuple
+        (Height, width).
+    interpolation : OpenCV interpolation method
+        See https://docs.opencv.org/2.4/modules/imgproc/doc/geometric_transformations.html#cv2.resize
+    Returns
+    -------
+    img :py:class:`~numpy.ndarray`
+        Resized image.
+    """
+    min_val = img.min()
+    max_val = img.max()
+    img_shape = np.array(img.shape)[:2]
+    if shape is None:
+        assert factor is not None
+        new_shape = tuple((img_shape * factor).astype(int))
+        new_shape = new_shape[::-1]
+        resized = cv2.resize(img, dsize=new_shape, interpolation=interpolation)
+    else:
+        if np.array_equal(img_shape, shape[::-1]):
+            return img
+        resized = cv2.resize(img, dsize=shape[::-1], interpolation=interpolation)
+    return np.clip(resized, min_val, max_val)
