@@ -479,3 +479,88 @@ def resize(img, factor=None, shape=None, interpolation=cv2.INTER_CUBIC):
             return img
         resized = cv2.resize(img, dsize=shape[::-1], interpolation=interpolation)
     return np.clip(resized, min_val, max_val)
+
+
+def realfftconvolve2d(image, kernel):
+    """Convolve image with kernel using real FFT.
+
+    Parameters
+    ----------
+    image : np.ndarray
+        Image.
+    kernel : np.ndarray
+        Kernel.
+
+    Returns
+    -------
+    np.ndarray
+        Convolved image.
+    """
+    image_shape = np.array(image.shape)
+
+    fft_shape = image_shape + np.array(kernel.shape) - 1
+
+    H = np.fft.rfft2(kernel, s=fft_shape)
+    I = np.fft.rfft2(image, s=fft_shape)
+    output = np.fft.irfft2(H * I, s=fft_shape)
+
+    # crop out zero padding
+    y_pad_edge = int((fft_shape[0] - image_shape[0]) / 2)
+    x_pad_edge = int((fft_shape[1] - image_shape[1]) / 2)
+    output = output[
+        y_pad_edge : y_pad_edge + image_shape[0], x_pad_edge : x_pad_edge + image_shape[1]
+    ]
+    return output
+
+
+def prepare_object_plane(
+    object,
+    object_height,
+    scene2mask,
+    mask2sensor,
+    sensor_size,
+    sensor_dim,
+):
+    """Prepare object plane for convolution with PSF.
+
+    Parameters
+    ----------
+    object : np.ndarray
+        Input image (HxWx3).
+    object_height : float
+        Height of object plane in meters.
+    scene2mask : float
+        Distance from scene to mask in meters.
+    mask2sensor : float
+        Distance from mask to sensor in meters.
+    sensor_size : tuple
+        Size of sensor in meters.
+    sensor_dim : tuple
+        Dimension of sensor in pixels.
+
+    Returns
+    -------
+    np.ndarray
+        Object plane.
+    """
+
+    input_dim = np.array(object.shape)[:2]
+
+    # determine object height in pixels
+    magnification = mask2sensor / scene2mask
+    scene_dim = np.array(sensor_size) / magnification
+    object_height_pix = int(np.round(object_height / scene_dim[1] * sensor_dim[1]))
+    scaling = object_height_pix / input_dim[1]
+    object_dim = tuple((np.round(input_dim * scaling)).astype(int))
+
+    # resize and pad object
+    object_plane = resize(object, shape=object_dim)
+
+    padding = sensor_dim - object_dim
+    left = padding[1] // 2
+    right = padding[1] - left
+    top = padding[0] // 2
+    bottom = padding[0] - top
+    object_plane = np.pad(object_plane, pad_width=((top, bottom), (left, right)), mode="constant")
+
+    return object_plane
