@@ -5,6 +5,11 @@ import torch.nn.functional as F
 from PIL import Image
 import os
 import numpy as np
+import torch
+import glob
+from waveprop.pytorch_util import RealFFTConvolve2D
+from waveprop.devices import sensor_dict, SensorParam
+from waveprop.simulation import ConvolutionWithPSF
 
 
 class Datasets(object):
@@ -15,6 +20,74 @@ class Datasets(object):
 
 # TODO : abstract parent class for Dataset, add distance for far-field propagation. See MNIST
 # TODO : take into account FOV and offset
+
+
+class Propagated(Dataset):
+
+    def __init__(
+        self,
+        path,
+        psf,
+        image_ext="jpg",
+        target="original",
+        random_vflip=False,
+        random_hflip=False,
+        random_rotate=False,
+        **kwargs
+    ):
+        """
+
+        Parameters
+        ----------
+        path : str
+            Path to images.
+        psf : Tensor
+            Point spread function of dimension (..., H, W).
+        image_ext : str, optional
+            Image extension, by default "jpg".
+        target : str, optional
+            Target image. "original" or "object_plane".
+
+        See `ConvolutionWithPSF` for other parameters.
+
+        """
+        self.path = path
+        self._files = glob.glob(os.path.join(self.path, f"*.{image_ext}"))
+        self._n_files = len(self._files)
+        self.target = target
+
+        # random transforms
+        transform_list = [np.array, transforms.ToTensor()]
+        if random_vflip:
+            transform_list.append(transforms.RandomVerticalFlip(p=random_vflip))
+        if random_hflip:
+            transform_list.append(transforms.RandomHorizontalFlip(p=random_hflip))
+        if random_rotate:
+            transform_list.append(transforms.RandomRotation(random_rotate))
+        self._transform = transforms.Compose(transform_list)
+
+        # initialize simulator
+        if psf.shape[-1] <= 3:
+            raise ValueError("Channel dimension should not be last.")
+        self.sim = ConvolutionWithPSF(
+            psf=psf,
+            **kwargs
+        )
+
+    def __getitem__(self, index):
+
+        # load image
+        img = Image.open(self._files[index])
+        img = self._transform(img)
+
+        if self.target == "original":
+            return self.sim.propagate(img), img
+        elif self.target == "object_plane":
+            return self.sim.propagate(img, return_object_plane=True)
+
+    def __len__(self):
+        return self._n_files
+
 
 
 class MNISTDataset(datasets.MNIST):
@@ -34,7 +107,7 @@ class MNISTDataset(datasets.MNIST):
         vflip=True,
         grayscale=True,
         scale=(1, 1),
-        **kwargs
+        **kwargs,
     ):
         """
         MNIST - 60'000 examples of 28x28
@@ -103,7 +176,7 @@ class CIFAR10Dataset(datasets.CIFAR10):
         scale=(1, 1),
         download=True,
         vflip=True,
-        **kwargs
+        **kwargs,
     ):
         """
         CIFAR10 - 50;000 examples of 32x32
@@ -172,7 +245,7 @@ class FlickrDataset(Dataset):
         grayscale=False,
         device=None,
         scale=(1, 1),
-        **kwargs
+        **kwargs,
     ):
         """
         Flickr8k - varied, around 400x500

@@ -1,5 +1,6 @@
 import numpy as np
 from scipy import ndimage
+import torch
 
 
 def add_shot_noise(image, snr_db, tol=1e-6):
@@ -22,12 +23,22 @@ def add_shot_noise(image, snr_db, tol=1e-6):
 
     """
 
-    if image.min() < 0:
-        image -= image.min()
-    noise = np.random.poisson(image)
+    if torch.is_tensor(image):
+        with torch.no_grad():
+            image_np = image.cpu().numpy()
+    else:
+        image_np = image
 
-    sig_var = ndimage.variance(image)
+    if image_np.min() < 0:
+        image_np -= image_np.min()
+    noise = np.random.poisson(image_np)
+
+    sig_var = ndimage.variance(image_np)
     noise_var = np.maximum(ndimage.variance(noise), tol)
     fact = np.sqrt(sig_var / noise_var / (10 ** (snr_db / 10)))
+
+    noise = fact * noise
+    if torch.is_tensor(image):
+        noise = torch.from_numpy(noise).to(image.device)
 
     return image + fact * noise

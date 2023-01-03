@@ -6,6 +6,8 @@ from scipy.special import j1
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from torchvision.transforms.functional import crop as crop_torch
+from torchvision.transforms.functional import resize as resize_torch
+import torch.nn.functional as F
 
 
 def ft2(g, delta):
@@ -445,11 +447,9 @@ def zero_pad(u_in, pad=None):
         return np.pad(u_in, pad_width=pad_width, mode="constant", constant_values=0)
 
 
-def resize(img, factor=None, shape=None, interpolation=cv2.INTER_CUBIC):
+def resize(img, factor=None, shape=None, interpolation=cv2.INTER_CUBIC, axes=(0, 1)):
     """
     Resize by given factor or to a given shape.
-
-    TODO support for PyTorch
 
     Parameters
     ----------
@@ -468,7 +468,8 @@ def resize(img, factor=None, shape=None, interpolation=cv2.INTER_CUBIC):
     """
     min_val = img.min()
     max_val = img.max()
-    img_shape = np.array(img.shape)[:2]
+    img_shape = np.array([img.shape[_ax] for _ax in axes])
+
     if shape is None:
         assert factor is not None
         new_shape = tuple((img_shape * factor).astype(int))
@@ -514,18 +515,20 @@ def realfftconvolve2d(image, kernel):
 
 
 def prepare_object_plane(
-    object,
+    obj,
     object_height,
     scene2mask,
     mask2sensor,
     sensor_size,
     sensor_dim,
+    random_shift=False,
 ):
-    """Prepare object plane for convolution with PSF.
+    """
+    Prepare object plane for convolution with PSF.
 
     Parameters
     ----------
-    object : np.ndarray
+    obj : np.ndarray
         Input image (HxWx3).
     object_height : float
         Height of object plane in meters.
@@ -537,30 +540,68 @@ def prepare_object_plane(
         Size of sensor in meters.
     sensor_dim : tuple
         Dimension of sensor in pixels.
+    random_shift : bool
+        Randomly shift resized obj in its plane.
 
     Returns
     -------
     np.ndarray
         Object plane.
     """
-
-    input_dim = np.array(object.shape)[:2]
+    if torch.is_tensor(obj):
+        axes = (-2, -1)
+    else:
+        axes = (0, 1)
 
     # determine object height in pixels
+    input_dim = np.array([obj.shape[_ax] for _ax in axes])
     magnification = mask2sensor / scene2mask
     scene_dim = np.array(sensor_size) / magnification
     object_height_pix = int(np.round(object_height / scene_dim[1] * sensor_dim[1]))
     scaling = object_height_pix / input_dim[1]
     object_dim = tuple((np.round(input_dim * scaling)).astype(int))
 
-    # resize and pad object
-    object_plane = resize(object, shape=object_dim)
+    if torch.is_tensor(obj):
+        object_plane = resize_torch(obj, size=object_dim)
+    else:
+        object_plane = resize(obj, shape=object_dim)
 
+    # pad object plane to convolution size
     padding = sensor_dim - object_dim
     left = padding[1] // 2
     right = padding[1] - left
     top = padding[0] // 2
     bottom = padding[0] - top
-    object_plane = np.pad(object_plane, pad_width=((top, bottom), (left, right)), mode="constant")
+
+    if top < 0:
+        top = 0
+        bottom = 0
+    if left < 0:
+        left = 0
+        right = 0
+
+    if torch.is_tensor(obj):
+        object_plane = torch.nn.functional.pad(
+            object_plane, pad=(left, right, top, bottom), mode="constant", value=0.0
+        )
+    else:
+        pad_width = [(0, 0) for _ in range(len(obj.shape))]
+        pad_width[axes[0]] = (top, bottom)
+        pad_width[axes[1]] = (left, right)
+        pad_width = tuple(pad_width)
+        object_plane = np.pad(object_plane, pad_width=pad_width, mode="constant")
+
+    # remove extra pixels if height extended beyond sensor
+    if object_plane.shape != sensor_dim:
+        object_plane = crop(object_plane, shape=sensor_dim)
+
+    if random_shift:
+        hshift = int(np.random.uniform(low=-left, high=right))
+        vshift = int(np.random.uniform(low=-bottom, high=top))
+        if torch.is_tensor(obj):
+            object_plane = torch.roll(object_plane, shifts=(vshift, hshift), dims=axes)
+        else:
+            object_plane = np.roll(object_plane, shift=hshift, axis=axes[1])
+            object_plane = np.roll(object_plane, shift=vshift, axis=axes[0])
 
     return object_plane
