@@ -5,6 +5,10 @@ import torch.nn.functional as F
 from PIL import Image
 import os
 import numpy as np
+import glob
+from waveprop.devices import sensor_dict
+from waveprop.simulation import FarFieldSimulator
+from abc import abstractmethod
 
 
 class Datasets(object):
@@ -13,8 +17,147 @@ class Datasets(object):
     FLICKR8k = "FLICKR"
 
 
-# TODO : abstract parent class for Dataset, add distance for far-field propagation. See MNIST
 # TODO : take into account FOV and offset
+
+
+class SimulatedDataset(Dataset):
+    """
+    Abstract class for simulated datasets.
+    """
+
+    def __init__(
+        self,
+        transform_list=None,
+        psf=None,
+        target="original",
+        random_vflip=False,
+        random_hflip=False,
+        random_rotate=False,
+        **kwargs,
+    ):
+        """
+
+        Parameters
+        ----------
+        transform_list : list of torchvision.transforms, optional
+            List of transforms to apply to image, by default None.
+        psf : np.ndarray, optional
+            Point spread function, by default None.
+        target : str, optional
+            Target to return, by default "original".
+            "original" : return propagated image and original image.
+            "object_plane" : return propagated image and object plane.
+            "label" : return propagated image and label.
+        random_vflip : float, optional
+            Probability of vertical flip, by default False.
+        random_hflip : float, optional
+            Probability of horizontal flip, by default False.
+        random_rotate : float, optional
+            Maximum angle of rotation, by default False.
+        """
+
+        self.target = target
+
+        # random transforms
+        self._transform = None
+        if transform_list is None:
+            transform_list = []
+        if random_vflip:
+            transform_list.append(transforms.RandomVerticalFlip(p=random_vflip))
+        if random_hflip:
+            transform_list.append(transforms.RandomHorizontalFlip(p=random_hflip))
+        if random_rotate:
+            transform_list.append(transforms.RandomRotation(random_rotate))
+        if len(transform_list) > 0:
+            self._transform = transforms.Compose(transform_list)
+
+        # initialize simulator
+        if psf is not None:
+            if psf.shape[-1] <= 3:
+                raise ValueError("Channel dimension should not be last.")
+        self.sim = FarFieldSimulator(psf=psf, is_torch=True, **kwargs)
+
+    @abstractmethod
+    def get_image(self, index):
+        raise NotImplementedError
+
+    def __getitem__(self, index):
+
+        # load image
+        img, label = self.get_image(index)
+        if self._transform is not None:
+            img = self._transform(img)
+
+        # propagate and return with desired output
+        if self.target == "original":
+            return self.sim.propagate(img), img
+        elif self.target == "object_plane":
+            return self.sim.propagate(img, return_object_plane=True)
+        elif self.target == "label":
+            return self.sim.propagate(img), label
+
+    def __len__(self):
+        return self.n_files
+
+
+class SimulatedDatasetFolder(SimulatedDataset):
+    """
+    Dataset of propagated images from a folder of images.
+    """
+
+    def __init__(self, path, image_ext="jpg", n_files=None, **kwargs):
+        """
+        Parameters
+        ----------
+        path : str
+            Path to folder of images.
+        image_ext : str, optional
+            Extension of images, by default "jpg".
+        n_files : int, optional
+            Number of files to load, by default load all.
+        """
+
+        self.path = path
+        self._files = glob.glob(os.path.join(self.path, f"*.{image_ext}"))
+        if n_files is None:
+            self.n_files = len(self._files)
+        else:
+            self.n_files = n_files
+            self._files = self._files[:n_files]
+
+        # initialize simulator
+        super(SimulatedDatasetFolder, self).__init__(
+            transform_list=[transforms.ToTensor()], **kwargs
+        )
+
+    def get_image(self, index):
+        img = Image.open(self._files[index])
+        label = None
+        return img, label
+
+
+class SimulatedPytorchDataset(SimulatedDataset):
+    """
+    Dataset of propagated images from a torch Dataset.
+    """
+
+    def __init__(self, dataset, **kwargs):
+        """
+        Parameters
+        ----------
+        dataset : torch.utils.data.Dataset
+            Dataset to propagate.
+        """
+
+        assert isinstance(dataset, Dataset)
+        self.dataset = dataset
+        self.n_files = len(dataset)
+
+        # initialize simulator
+        super(SimulatedPytorchDataset, self).__init__(**kwargs)
+
+    def get_image(self, index):
+        return self.dataset[index]
 
 
 class MNISTDataset(datasets.MNIST):
@@ -34,7 +177,7 @@ class MNISTDataset(datasets.MNIST):
         vflip=True,
         grayscale=True,
         scale=(1, 1),
-        **kwargs
+        **kwargs,
     ):
         """
         MNIST - 60'000 examples of 28x28
@@ -103,7 +246,7 @@ class CIFAR10Dataset(datasets.CIFAR10):
         scale=(1, 1),
         download=True,
         vflip=True,
-        **kwargs
+        **kwargs,
     ):
         """
         CIFAR10 - 50;000 examples of 32x32
@@ -172,7 +315,7 @@ class FlickrDataset(Dataset):
         grayscale=False,
         device=None,
         scale=(1, 1),
-        **kwargs
+        **kwargs,
     ):
         """
         Flickr8k - varied, around 400x500

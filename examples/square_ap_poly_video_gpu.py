@@ -53,21 +53,21 @@ if build_gif:
     filenames = []
     frames = []
 
+
 def simulate(i):
-    u_out_wv, _, _ = angular_spectrum(
-        u_in=u_in * gain, wv=cs.wv[i], d1=d1, dz=dz, device=device
-    )
+    u_out_wv, _, _ = angular_spectrum(u_in=u_in * gain, wv=cs.wv[i], d1=d1, dz=dz, device=device)
     if plot_int:
         res = torch.real(u_out_wv * np.conjugate(u_out_wv))
     else:
         res = torch.abs(u_out_wv)
     return res
 
+
 for dz in dz_vals:
     """loop over wavelengths for simulation"""
 
     start_time = time.time()
-    
+
     u_out = Parallel(n_jobs=n_jobs)(delayed(simulate)(i) for i in range(cs.n_wavelength))
     u_out = torch.stack(u_out).permute(1, 2, 0)
 
