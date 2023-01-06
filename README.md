@@ -49,8 +49,10 @@ From master branch of original repo, and using the appropriate value for `X.X.X`
 git tag -a vX.X.X -m "Description."
 git push origin vX.X.X
 
-# Create package and upload to Pypi
+# Change version number in setup.py
 python setup.py sdist
+
+# Create package and upload to Pypi
 twine upload dist/waveprop-X.X.X.tar.gz   
 ```
 
