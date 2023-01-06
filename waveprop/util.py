@@ -584,6 +584,9 @@ def prepare_object_plane(
         object_plane = torch.nn.functional.pad(
             object_plane, pad=(left, right, top, bottom), mode="constant", value=0.0
         )
+
+        object_plane_shape = np.array(object_plane.shape[-2:])
+
     else:
         pad_width = [(0, 0) for _ in range(len(obj.shape))]
         pad_width[axes[0]] = (top, bottom)
@@ -591,8 +594,10 @@ def prepare_object_plane(
         pad_width = tuple(pad_width)
         object_plane = np.pad(object_plane, pad_width=pad_width, mode="constant")
 
+        object_plane_shape = np.array(object_plane.shape[:2])
+
     # remove extra pixels if height extended beyond sensor
-    if object_plane.shape != sensor_dim:
+    if (object_plane_shape != sensor_dim).any():
         object_plane = crop(object_plane, shape=sensor_dim)
 
     if random_shift:
