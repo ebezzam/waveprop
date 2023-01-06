@@ -192,7 +192,7 @@ def jinc(x):
     return y
 
 
-def plot2d(x_vals, y_vals, Z, pcolormesh=False, colorbar=True, title="", ax=None):
+def plot2d(x_vals, y_vals, Z, pcolormesh=False, colorbar=True, title="", ax=None, **kwargs):
     """
     pcolormesh doesn't keep square aspect ratio for each pixel
     """
@@ -214,7 +214,7 @@ def plot2d(x_vals, y_vals, Z, pcolormesh=False, colorbar=True, title="", ax=None
         ax = fig.add_subplot(1, 1, 1)
     X, Y = np.meshgrid(x_vals, y_vals)
     if pcolormesh:
-        cp = ax.pcolormesh(X, Y, Z, cmap=cm.gray)
+        cp = ax.pcolormesh(X, Y, Z, cmap=cm.gray, **kwargs)
     else:
         if len(Z.shape) == 2 or Z.shape[0] == 1:
             cp = ax.imshow(
@@ -227,6 +227,7 @@ def plot2d(x_vals, y_vals, Z, pcolormesh=False, colorbar=True, title="", ax=None
                 ],
                 cmap="gray",
                 origin="lower",
+                **kwargs
             )
         else:
             cp = ax.imshow(
@@ -238,6 +239,7 @@ def plot2d(x_vals, y_vals, Z, pcolormesh=False, colorbar=True, title="", ax=None
                     y_vals.max(),
                 ],
                 origin="lower",
+                **kwargs
             )
     fig = plt.gcf()
     if colorbar and len(Z.shape) == 2:
@@ -245,6 +247,20 @@ def plot2d(x_vals, y_vals, Z, pcolormesh=False, colorbar=True, title="", ax=None
     ax.set_xlabel("x [m]")
     ax.set_ylabel("y [m]")
     ax.set_title(title)
+    return ax
+
+
+def plot_field(x, y, Z, ax=None, **kwargs):
+    if ax is None:
+        fig, ax = plt.subplots(nrows=1, ncols=2)
+    else:
+        assert len(ax) == 2
+    
+    # magnitude
+    plot2d(x_vals=x, y_vals=y, Z=np.abs(Z), ax=ax[0], title="magnitude", vmin=0, **kwargs)
+    
+    # phase
+    plot2d(x_vals=x, y_vals=y, Z=np.unwrap(np.angle(Z)), ax=ax[1], title="phase", **kwargs)
     return ax
 
 
