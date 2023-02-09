@@ -102,6 +102,8 @@ def incoherent_simulation(
     assert z > 0
     if slm_pattern is not None:
         assert os.path.exists(slm_pattern)
+    if not pytorch:
+        device = "cpu"
 
     # SLM parameters (Adafruit screen)
     slm_dim = [128 * 3, 160]
