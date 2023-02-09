@@ -1,6 +1,7 @@
 import numpy as np
+import torch
 from scipy.special import fresnel
-from waveprop.util import sample_points, ft2, ift2
+from waveprop.util import sample_points, ft2, ift2, _get_dtypes, zero_pad, crop
 
 
 def fresnel_one_step(u_in, wv, d1, dz):
@@ -30,15 +31,15 @@ def fresnel_one_step(u_in, wv, d1, dz):
     k = 2 * np.pi / wv
 
     # coordinates
-    x1, y1 = sample_points(N=[Nx, Ny], delta=d1)
-    x2, y2 = sample_points(N=[Nx, Ny], delta=[1 / Nx / d1[0] * wv * dz, 1 / Ny / d1[1] * wv * dz])
+    x1, y1 = sample_points(N=[Ny, Nx], delta=d1)
+    x2, y2 = sample_points(N=[Ny, Nx], delta=[1 / Ny / d1[0] * wv * dz, 1 / Nx / d1[1] * wv * dz])
 
     # evaluate integral
     u_out = (
         np.exp(1j * k * dz)
         / (1j * wv * dz)
-        * np.exp(1j * k / (2 * dz) * (x2 ** 2 + y2 ** 2))
-        * ft2(u_in * np.exp(1j * k / (2 * dz) * (x1 ** 2 + y1 ** 2)), delta=d1)
+        * np.exp(1j * k / (2 * dz) * (x2**2 + y2**2))
+        * ft2(u_in * np.exp(1j * k / (2 * dz) * (x1**2 + y1**2)), delta=d1)
     )
 
     return u_out, x2, y2
@@ -86,16 +87,17 @@ def fresnel_two_step(u_in, wv, d1, d2, dz):
     return fresnel_one_step(u_itm, wv, d1a, dz2)
 
 
-def fresnel_conv(u_in, wv, d1, d2, dz):
+def fresnel_conv(u_in, wv, d1, dz, device=None, dtype=None, d2=None, pad=True):
     """
-    Fresnel numerical computation (through convolution perspective) that gives control over output
-    sampling but at a higher cost of two FFTs.
+    Fresnel numerical computation (through convolution perspective) that gives
+    control over output sampling but at a higher cost of two FFTs.
 
-    Listing 6.5 of "Numerical Simulation of Optical Wave Propagation with Examples in MATLAB"
-    (2010).
+    Based off of Listing 6.5 of "Numerical Simulation of Optical Wave
+    Propagation with Examples in MATLAB" (2010). Added zero-padding and support
+    for PyTorch.
 
-    NB: only works for square sampling, as non-square would result in different magnification
-    factors.
+    NB: only works for square sampling, as non-square would result in different
+    magnification factors.
 
     Parameters
     ----------
@@ -109,34 +111,75 @@ def fresnel_conv(u_in, wv, d1, d2, dz):
         Desired output sampling period for both x-dimension and y-dimension [m].
     dz : float
         Propagation distance [m].
+    pad : bool
+        Whether or not to zero-pad to linearize circular convolution. If the
+        original signal has enough padding, this may not be necessary.
+    device : "cpu" or "gpu"
+        If using PyTorch, required. Device on which to perform computations.
+    dtype : float32 or float 64
+        Data type to use.
 
     """
+    if torch.is_tensor(u_in) or torch.is_tensor(dz):
+        is_torch = True
+    else:
+        is_torch = False
+    if is_torch:
+        assert device is not None, "Set device for PyTorch"
+        if torch.is_tensor(u_in):
+            u_in = u_in.to(device)
+        if torch.is_tensor(dz):
+            dz = dz.to(device)
+    assert isinstance(d1, float)
+    if d2 is None:
+        d2 = d1
+    else:
+        assert isinstance(d2, float)
+    if dtype is None:
+        dtype = u_in.dtype
+    ctype, ctype_np = _get_dtypes(dtype, is_torch)
+
+    if pad:
+        N_orig = np.array(u_in.shape)
+        u_in = zero_pad(u_in)
     N = np.array(u_in.shape)
     k = 2 * np.pi / wv
 
     # source coordinates
     x1, y1 = sample_points(N=N, delta=d1)
-    r1sq = x1 ** 2 + y1 ** 2
+    r1sq = x1**2 + y1**2
 
     # source spatial frequencies
     df1 = 1 / (N * d1)
     fX, fY = sample_points(N=N, delta=df1)
-    fsq = fX ** 2 + fY ** 2
+    fsq = fX**2 + fY**2
 
     # scaling parameter
     m = d2 / d1
 
     # observation plane
     x2, y2 = sample_points(N=N, delta=d2)
-    r2sq = x2 ** 2 + y2 ** 2
+    r2sq = x2**2 + y2**2
 
     # quadratic phase factors
-    Q1 = np.exp(1j * k / 2 * (1 - m) / dz * r1sq)
-    Q2 = np.exp(-1j * np.pi ** 2 * 2 * dz / m / k * fsq)
-    Q3 = np.exp(1j * k / 2 * (m - 1) / (m * dz) * r2sq)
+    Q2 = np.exp(-1j * np.pi**2 * 2 * dz / m / k * fsq).astype(ctype_np)
+    if is_torch:
+        Q2 = torch.tensor(Q2, dtype=ctype).to(device)
+    if m == 1:
+        Q1 = 1
+        Q3 = 1
+    else:
+        Q1 = np.exp(1j * k / 2 * (1 - m) / dz * r1sq).astype(ctype_np)
+        Q3 = np.exp(1j * k / 2 * (m - 1) / (m * dz) * r2sq).astype(ctype_np)
+        if is_torch:
+            Q1 = torch.tensor(Q1, dtype=ctype).to(device)
+            Q3 = torch.tensor(Q3, dtype=ctype).to(device)
 
     # propagated field
     u_out = Q3 * ift2(Q2 * ft2(Q1 * u_in / m, delta=d1), delta_f=df1)
+
+    if pad:
+        u_out = crop(u_out, shape=N_orig, topleft=(int(N_orig[0] // 2), int(N_orig[1] // 2)))
 
     return u_out, x2, y2
 
@@ -256,25 +299,25 @@ def shifted_fresnel(u_in, wv, d1, dz, d2=None, out_shift=0):
     fact_fresnel = (
         np.exp(1j * k * dz)
         / (1j * wv * dz)
-        * np.exp(1j * np.pi * (x_m ** 2 + y_n ** 2) / wv / dz)
+        * np.exp(1j * np.pi * (x_m**2 + y_n**2) / wv / dz)
         * np.exp(-1j * 2 * np.pi * (x0_in * m * d2[0] + y0_in * n * d2[1]) / wv / dz)
     )
 
     # modulated input, second line of Eq 13
     h = (
         u_in
-        * np.exp(1j * np.pi * (x_p ** 2 + y_q ** 2) / wv / dz)
+        * np.exp(1j * np.pi * (x_p**2 + y_q**2) / wv / dz)
         * np.exp(-1j * 2 * np.pi * (x_p * x0 + y_q * y0) / wv / dz)
     )
 
     # scaled Discrete Fourier transform (e.g. fractional FT), Eq 15 but for 2D
     s = d1[0] * d2[0] / wv / dz
     t = d1[1] * d2[1] / wv / dz
-    fact_sdft = np.exp(-1j * np.pi * s * m ** 2) * np.exp(-1j * np.pi * t * n ** 2)
+    fact_sdft = np.exp(-1j * np.pi * s * m**2) * np.exp(-1j * np.pi * t * n**2)
     # -- Eq 16, Eq 13 of Bailey
-    f = h * np.exp(-1j * np.pi * s * p ** 2) * np.exp(-1j * np.pi * t * q ** 2)
+    f = h * np.exp(-1j * np.pi * s * p**2) * np.exp(-1j * np.pi * t * q**2)
     # -- Eq 17, Eq 14 of Bailey
-    g = np.exp(1j * np.pi * s * p ** 2) * np.exp(1j * np.pi * t * q ** 2)
+    g = np.exp(1j * np.pi * s * p**2) * np.exp(1j * np.pi * t * q**2)
 
     # -- pad 2-D sequence, Eq 15-16 of Bailey
     pad_size = (2 * Ny - 1, 2 * Nx - 1)
@@ -284,10 +327,10 @@ def shifted_fresnel(u_in, wv, d1, dz, d2=None, out_shift=0):
     g_pad[:Ny, :Nx] = g
     p_pad = np.arange(pad_size[1] - Nx, pad_size[1])[np.newaxis, :]
     g_pad[:Ny, pad_size[1] - Nx :] = np.exp(1j * np.pi * s * (p_pad - pad_size[1]) ** 2) * np.exp(
-        1j * np.pi * t * q ** 2
+        1j * np.pi * t * q**2
     )
     q_pad = np.arange(pad_size[0] - Ny, pad_size[0])[:, np.newaxis]
-    g_pad[pad_size[0] - Ny :, :Nx] = np.exp(1j * np.pi * s * p ** 2) * np.exp(
+    g_pad[pad_size[0] - Ny :, :Nx] = np.exp(1j * np.pi * s * p**2) * np.exp(
         1j * np.pi * t * (q_pad - pad_size[0]) ** 2
     )
     g_pad[pad_size[0] - Ny :, pad_size[1] - Nx :] = np.exp(
@@ -314,9 +357,9 @@ def fresnel_multi_step(u_in, wv, delta1, deltan, z):
     nx, ny = np.meshgrid(src, src)
 
     # super-Gaussian absorbing boundary
-    nsq = nx ** 2 + ny ** 2
+    nsq = nx**2 + ny**2
     w = 0.47 * N
-    sg = np.exp(-(nsq ** 8) / w ** 16)
+    sg = np.exp(-(nsq**8) / w**16)
 
     z = np.r_[0, z]  # propagation plane locations
     n = len(z)
@@ -329,7 +372,7 @@ def fresnel_multi_step(u_in, wv, delta1, deltan, z):
     m = delta[1:] / delta[: n - 1]
     x1 = nx * delta[0]
     y1 = ny * delta[0]
-    r1sq = x1 ** 2 + y1 ** 2
+    r1sq = x1**2 + y1**2
 
     Q1 = np.exp(1j * k / 2 * (1 - m[0]) / Delta_z[0] * r1sq)
     u_in = u_in * Q1
@@ -338,11 +381,11 @@ def fresnel_multi_step(u_in, wv, delta1, deltan, z):
         deltaf = 1 / (N * delta[idx])
         fX = nx * deltaf
         fY = ny * deltaf
-        fsq = fX ** 2 + fY ** 2
+        fsq = fX**2 + fY**2
         Z = Delta_z[idx]  # propagation distance
 
         # quadratic phase factor
-        Q2 = np.exp(-1j * np.pi ** 2 * 2 * Z / m[idx] / k * fsq)
+        Q2 = np.exp(-1j * np.pi**2 * 2 * Z / m[idx] / k * fsq)
 
         # compute propagated field
         u_in = sg * ift2(Q2 * ft2(u_in / m[idx], delta[idx]), deltaf)
@@ -350,7 +393,7 @@ def fresnel_multi_step(u_in, wv, delta1, deltan, z):
     # observation plane coordinates
     xn = nx * delta[n - 1]
     yn = ny * delta[n - 1]
-    rnsq = xn ** 2 + yn ** 2
+    rnsq = xn**2 + yn**2
     Q3 = np.exp(1j * k / 2 * (m[n - 2] - 1) / (m[n - 2] * Z) * rnsq)
     Uout = Q3 * u_in
 

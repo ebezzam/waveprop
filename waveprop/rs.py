@@ -3,7 +3,7 @@ import torch
 from waveprop.pytorch_util import fftconvolve as fftconvolve_torch
 import warnings
 from scipy.signal import fftconvolve
-from waveprop.util import ft2, ift2, sample_points, crop
+from waveprop.util import ft2, ift2, sample_points, crop, _get_dtypes, zero_pad
 from pyffs import ffsn, fs_interpn, ffs_shift
 
 
@@ -26,7 +26,7 @@ def free_space_impulse_response(k, x, y, z):
         Propagation distance [m].
 
     """
-    r = np.sqrt(x ** 2 + y ** 2 + z ** 2)
+    r = np.sqrt(x**2 + y**2 + z**2)
     return 1 / (2 * np.pi) * np.exp(1j * k * r) / r * z / r * (1 / r - 1j * k)
 
 
@@ -189,6 +189,7 @@ def angular_spectrum_np(
     weights=None,
     dtype=None,
     return_H=False,
+    pad=True,
 ):
     """
     Band-Limited Angular Spectrum Method for Numerical Simulation of Free-Space Propagation in Far
@@ -264,9 +265,12 @@ def angular_spectrum_np(
     #     in_shift = [in_shift, in_shift]
     # assert len(in_shift) == 2
 
-    # zero pad to simulate linear convolution
-    Ny, Nx = u_in.shape
-    u_in_pad = _zero_pad(u_in)
+    if pad:
+        # zero pad to simulate linear convolution
+        Ny, Nx = u_in.shape
+        u_in_pad = zero_pad(u_in)
+    else:
+        u_in_pad = u_in
 
     # size of the padded field
     Ny_pad, Nx_pad = u_in_pad.shape
@@ -277,11 +281,11 @@ def angular_spectrum_np(
     dfY = 1.0 / Dy
     fX = np.arange(-Nx_pad / 2, Nx_pad / 2)[np.newaxis, :] * dfX
     fY = np.arange(-Ny_pad / 2, Ny_pad / 2)[:, np.newaxis] * dfY
-    fsq = fX ** 2 + fY ** 2
+    fsq = fX**2 + fY**2
 
     # compute transfer function (Saleh / Sepand's notes but w/o abs val on distance)
     k = 2 * np.pi / wv
-    wv_sq = wv ** 2
+    wv_sq = wv**2
     # H = np.zeros_like(u_in_pad).astype(complex)
     H = np.zeros((fY.shape[0], fX.shape[1]), dtype=ctype)
     prop_waves = fsq <= 1 / wv_sq
@@ -347,12 +351,13 @@ def angular_spectrum_np(
         u_out = ift2(U2, delta_f=[dfY, dfX])
 
         # remove padding
-        y_pad_edge = int(Ny // 2)
-        x_pad_edge = int(Nx // 2)
-        u_out = u_out[
-            y_pad_edge : y_pad_edge + Ny,
-            x_pad_edge : x_pad_edge + Nx,
-        ]
+        if pad:
+            y_pad_edge = int(Ny // 2)
+            x_pad_edge = int(Nx // 2)
+            u_out = u_out[
+                y_pad_edge : y_pad_edge + Ny,
+                x_pad_edge : x_pad_edge + Nx,
+            ]
 
         # output coordinates
         x2, y2 = sample_points(N=[Ny, Nx], delta=d1, shift=out_shift)
@@ -403,9 +408,9 @@ def angular_spectrum_np(
             # Eq 9 of "Band-limited angular spectrum numerical propagation method with selective scaling
             # of observation window size and sample number" (2012)
             u_out = (
-                np.exp(1j * np.pi / alpha_x * x2 ** 2)
+                np.exp(1j * np.pi / alpha_x * x2**2)
                 * d2[1]
-                * np.exp(1j * np.pi / alpha_y * y2 ** 2)
+                * np.exp(1j * np.pi / alpha_y * y2**2)
                 * d2[0]
             ).astype(ctype)
 
@@ -415,11 +420,11 @@ def angular_spectrum_np(
                 U2
                 * (1 / alpha_x)
                 * (1 / alpha_y)
-                * np.exp(1j * np.pi / alpha_x * fX_scaled ** 2)
-                * np.exp(1j * np.pi / alpha_y * fY_scaled ** 2)
+                * np.exp(1j * np.pi / alpha_x * fX_scaled**2)
+                * np.exp(1j * np.pi / alpha_y * fY_scaled**2)
             )
-            f = np.exp(-1j * np.pi / alpha_x * fX_scaled ** 2) * np.exp(
-                -1j * np.pi / alpha_y * fY_scaled ** 2
+            f = np.exp(-1j * np.pi / alpha_x * fX_scaled**2) * np.exp(
+                -1j * np.pi / alpha_y * fY_scaled**2
             )
             tmp = fftconvolve(B, f, mode="same")
             u_out *= tmp[
@@ -452,6 +457,7 @@ def angular_spectrum(
     H_exp=None,
     U1=None,
     device=None,
+    pad=True,
 ):
     """
 
@@ -523,9 +529,12 @@ def angular_spectrum(
         dtype = u_in.dtype
     ctype, ctype_np = _get_dtypes(dtype, is_torch)
 
-    # pad input to linearize convolution
     Ny, Nx = u_in.shape
-    u_in_pad = _zero_pad(u_in)
+    # pad input to linearize convolution
+    if pad:
+        u_in_pad = zero_pad(u_in)
+    else:
+        u_in_pad = u_in
 
     # size of the padded field
     Ny_pad, Nx_pad = u_in_pad.shape
@@ -554,6 +563,7 @@ def angular_spectrum(
 
                 # -- compute coefficients
                 U1 = ffsn(u_in_pad_reorder, T, T_c, N_FS)[: N_FS[0], : N_FS[1]]
+                # TODO
             # else:
             #     U1 = ft2(u_in_pad, delta=d1)
             #     if not torch.is_tensor(U1):
@@ -569,7 +579,7 @@ def angular_spectrum(
                     # we have separate input field that we need to multiply with mask in time domain
                     if aperture_ft is None:
                         assert aperture.shape == u_in.shape
-                        aperture_pad = _zero_pad(aperture)
+                        aperture_pad = zero_pad(aperture)
                         AP = ft2(aperture_pad, delta=d1)
                     else:
                         AP = aperture_ft
@@ -653,7 +663,8 @@ def angular_spectrum(
         u_out = ift2(U2, delta_f=[dfY, dfX])
 
         # remove padding
-        u_out = crop(u_out, shape=(Ny, Nx), topleft=(int(Ny // 2), int(Nx // 2)))
+        if pad:
+            u_out = crop(u_out, shape=(Ny, Nx), topleft=(int(Ny // 2), int(Nx // 2)))
 
         # output coordinates
         x2, y2 = sample_points(N=[Ny, Nx], delta=d1, shift=out_shift)
@@ -684,22 +695,22 @@ def angular_spectrum(
             alpha_x = d2[1] / dfX
             alpha_y = d2[0] / dfY
             u_out = (
-                np.exp(1j * np.pi / alpha_x * x2 ** 2)
+                np.exp(1j * np.pi / alpha_x * x2**2)
                 * d2[1]
-                * np.exp(1j * np.pi / alpha_y * y2 ** 2)
+                * np.exp(1j * np.pi / alpha_y * y2**2)
                 * d2[0]
             ).astype(ctype_np)
             fX_scaled = alpha_x * fX
             fY_scaled = alpha_y * fY
-            f = np.exp(-1j * np.pi / alpha_x * fX_scaled ** 2) * np.exp(
-                -1j * np.pi / alpha_y * fY_scaled ** 2
+            f = np.exp(-1j * np.pi / alpha_x * fX_scaled**2) * np.exp(
+                -1j * np.pi / alpha_y * fY_scaled**2
             )
 
             if is_torch:
                 u_out = torch.tensor(u_out, dtype=ctype).to(device)
                 mod_term = (
-                    np.exp(1j * np.pi / alpha_x * fX_scaled ** 2)
-                    * np.exp(1j * np.pi / alpha_y * fY_scaled ** 2)
+                    np.exp(1j * np.pi / alpha_x * fX_scaled**2)
+                    * np.exp(1j * np.pi / alpha_y * fY_scaled**2)
                     * (1 / alpha_x)
                     * (1 / alpha_y)
                 )
@@ -712,8 +723,8 @@ def angular_spectrum(
                     U2
                     * (1 / alpha_x)
                     * (1 / alpha_y)
-                    * np.exp(1j * np.pi / alpha_x * fX_scaled ** 2)
-                    * np.exp(1j * np.pi / alpha_y * fY_scaled ** 2)
+                    * np.exp(1j * np.pi / alpha_x * fX_scaled**2)
+                    * np.exp(1j * np.pi / alpha_y * fY_scaled**2)
                 )
                 tmp = fftconvolve(B, f, mode="same")
             u_out *= crop(
@@ -721,27 +732,6 @@ def angular_spectrum(
             )
 
     return u_out, x2, y2
-
-
-def _get_dtypes(dtype, is_torch):
-    if not is_torch:
-        if dtype == np.float32 or dtype == np.complex64:
-            return np.complex64, np.complex64
-        elif dtype == np.float64 or dtype == np.complex128:
-            return np.complex128, np.complex128
-        else:
-            raise ValueError("Unexpected dtype")
-    else:
-        if dtype == np.float32 or dtype == np.complex64:
-            return torch.complex64, np.complex64
-        elif dtype == np.float64 or dtype == np.complex128:
-            return torch.complex128, np.complex128
-        elif dtype == torch.float32 or dtype == torch.complex64:
-            return torch.complex64, np.complex64
-        elif dtype == torch.float64 or dtype == torch.complex128:
-            return torch.complex128, np.complex128
-        else:
-            raise ValueError("Unexpected dtype")
 
 
 def _form_transfer_function(
@@ -832,11 +822,11 @@ def _form_transfer_function(
     fY = np.arange(-Ny_pad / 2, Ny_pad / 2)[:, np.newaxis] * dfY
 
     # - compute transfer function
-    fsq = fX ** 2 + fY ** 2
+    fsq = fX**2 + fY**2
     k = 2 * np.pi / wv
-    wv_sq = wv ** 2
+    wv_sq = wv**2
 
-    if optimize_z or return_H_exp:
+    if optimize_z or return_H_exp or H_exp is not None:
         # need to cast to tensor before multiplying with z inside complex exp
         if H_exp is None:
 
@@ -852,12 +842,18 @@ def _form_transfer_function(
 
         if return_H_exp:
             return H_exp
-        H = torch.exp(H_exp * dz)
+
+        if is_torch:
+            H = torch.exp(H_exp * dz)
+        else:
+            H = np.exp(H_exp * dz)
 
         if (out_shift[0] or out_shift[1]) and not pyffs:
             # Eq 7 of Matsushima (2010)
-            H_shift_np = np.exp(1j * 2 * np.pi * (out_shift[1] * fX + out_shift[0] * fY))
-            H_shift = torch.tensor(H_shift_np.astype(ctype_np), dtype=ctype).to(device)
+            H_shift = np.exp(1j * 2 * np.pi * (out_shift[1] * fX + out_shift[0] * fY))
+            if is_torch:
+                H_shift = torch.tensor(H_shift.astype(ctype_np), dtype=ctype).to(device)
+
             H *= H_shift
 
         if bandlimit:
@@ -869,7 +865,7 @@ def _form_transfer_function(
                 Sy=Ny_pad * d1[0],
                 x0=out_shift[1],
                 y0=out_shift[0],
-                z0=dz.cpu().numpy()[0],
+                z0=dz.cpu().numpy()[0] if torch.is_tensor(dz) else dz,
                 wv=wv,
             )
     else:
@@ -910,27 +906,6 @@ def _form_transfer_function(
     return H
 
 
-def _zero_pad(u_in):
-    Ny, Nx = u_in.shape
-    y_pad_edge = int(Ny // 2)
-    x_pad_edge = int(Nx // 2)
-
-    if torch.is_tensor(u_in):
-        pad_width = (
-            x_pad_edge + 1 if Nx % 2 else x_pad_edge,
-            x_pad_edge,
-            y_pad_edge + 1 if Ny % 2 else y_pad_edge,
-            y_pad_edge,
-        )
-        return torch.nn.functional.pad(u_in, pad_width, mode="constant", value=0.0)
-    else:
-        pad_width = (
-            (y_pad_edge + 1 if Ny % 2 else y_pad_edge, y_pad_edge),
-            (x_pad_edge + 1 if Nx % 2 else x_pad_edge, x_pad_edge),
-        )
-        return np.pad(u_in, pad_width=pad_width, mode="constant", constant_values=0)
-
-
 def _bandpass(H, fX, fY, Sx, Sy, x0, y0, z0, wv):
     """
     Table 1 of "Shifted angular spectrum method for off-axis numerical propagation" (2010).
@@ -942,8 +917,8 @@ def _bandpass(H, fX, fY, Sx, Sy, x0, y0, z0, wv):
     :return:
     """
     du = 1 / (2 * Sx)
-    u_limit_p = ((x0 + 1 / (2 * du)) ** (-2) * z0 ** 2 + 1) ** (-1 / 2) / wv
-    u_limit_n = ((x0 - 1 / (2 * du)) ** (-2) * z0 ** 2 + 1) ** (-1 / 2) / wv
+    u_limit_p = ((x0 + 1 / (2 * du)) ** (-2) * z0**2 + 1) ** (-1 / 2) / wv
+    u_limit_n = ((x0 - 1 / (2 * du)) ** (-2) * z0**2 + 1) ** (-1 / 2) / wv
     if Sx < x0:
         u0 = (u_limit_p + u_limit_n) / 2
         u_width = u_limit_p - u_limit_n
@@ -955,8 +930,8 @@ def _bandpass(H, fX, fY, Sx, Sy, x0, y0, z0, wv):
         u_width = u_limit_p + u_limit_n
 
     dv = 1 / (2 * Sy)
-    v_limit_p = ((y0 + 1 / (2 * dv)) ** (-2) * z0 ** 2 + 1) ** (-1 / 2) / wv
-    v_limit_n = ((y0 - 1 / (2 * dv)) ** (-2) * z0 ** 2 + 1) ** (-1 / 2) / wv
+    v_limit_p = ((y0 + 1 / (2 * dv)) ** (-2) * z0**2 + 1) ** (-1 / 2) / wv
+    v_limit_n = ((y0 - 1 / (2 * dv)) ** (-2) * z0**2 + 1) ** (-1 / 2) / wv
     if Sy < y0:
         v0 = (v_limit_p + v_limit_n) / 2
         v_width = v_limit_p - v_limit_n

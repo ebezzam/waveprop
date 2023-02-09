@@ -1,10 +1,13 @@
 import numpy as np
+import cv2
 from numpy.fft import fftshift, fft2, ifftshift, ifft2
 import torch
 from scipy.special import j1
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from torchvision.transforms.functional import crop as crop_torch
+from torchvision.transforms.functional import resize as resize_torch
+import torch.nn.functional as F
 
 
 def ft2(g, delta):
@@ -125,7 +128,7 @@ def circ(x, y, diam):
     diam : float
         Diameter [m].
     """
-    r = np.sqrt(x ** 2 + y ** 2)
+    r = np.sqrt(x**2 + y**2)
     z = (r < diam / 2).astype(float)
     z[r == diam / 2] = 0.5
     return z
@@ -397,3 +400,213 @@ def crop(u, shape, topleft=None, center_shift=None):
             topleft[0] : topleft[0] + Ny,
             topleft[1] : topleft[1] + Nx,
         ]
+
+
+def _get_dtypes(dtype, is_torch):
+    if not is_torch:
+        if dtype == np.float32 or dtype == np.complex64:
+            return np.complex64, np.complex64
+        elif dtype == np.float64 or dtype == np.complex128:
+            return np.complex128, np.complex128
+        else:
+            raise ValueError("Unexpected dtype: ", dtype)
+    else:
+        if dtype == np.float32 or dtype == np.complex64:
+            return torch.complex64, np.complex64
+        elif dtype == np.float64 or dtype == np.complex128:
+            return torch.complex128, np.complex128
+        elif dtype == torch.float32 or dtype == torch.complex64:
+            return torch.complex64, np.complex64
+        elif dtype == torch.float64 or dtype == torch.complex128:
+            return torch.complex128, np.complex128
+        else:
+            raise ValueError("Unexpected dtype: ", dtype)
+
+
+def zero_pad(u_in, pad=None):
+    Ny, Nx = u_in.shape
+    if pad is None:
+        y_pad_edge = int(Ny // 2)
+        x_pad_edge = int(Nx // 2)
+    else:
+        y_pad_edge, x_pad_edge = pad
+
+    if torch.is_tensor(u_in):
+        pad_width = (
+            x_pad_edge + 1 if Nx % 2 else x_pad_edge,
+            x_pad_edge,
+            y_pad_edge + 1 if Ny % 2 else y_pad_edge,
+            y_pad_edge,
+        )
+        return torch.nn.functional.pad(u_in, pad_width, mode="constant", value=0.0)
+    else:
+        pad_width = (
+            (y_pad_edge + 1 if Ny % 2 else y_pad_edge, y_pad_edge),
+            (x_pad_edge + 1 if Nx % 2 else x_pad_edge, x_pad_edge),
+        )
+        return np.pad(u_in, pad_width=pad_width, mode="constant", constant_values=0)
+
+
+def resize(img, factor=None, shape=None, interpolation=cv2.INTER_CUBIC, axes=(0, 1)):
+    """
+    Resize by given factor or to a given shape.
+
+    Parameters
+    ----------
+    img :py:class:`~numpy.ndarray`
+        Downsampled image.
+    factor : int or float
+        Resizing factor.
+    shape : tuple
+        (Height, width).
+    interpolation : OpenCV interpolation method
+        See https://docs.opencv.org/2.4/modules/imgproc/doc/geometric_transformations.html#cv2.resize
+    Returns
+    -------
+    img :py:class:`~numpy.ndarray`
+        Resized image.
+    """
+    min_val = img.min()
+    max_val = img.max()
+    img_shape = np.array([img.shape[_ax] for _ax in axes])
+
+    if shape is None:
+        assert factor is not None
+        new_shape = tuple((img_shape * factor).astype(int))
+        new_shape = new_shape[::-1]
+        resized = cv2.resize(img, dsize=new_shape, interpolation=interpolation)
+    else:
+        if np.array_equal(img_shape, shape[::-1]):
+            return img
+        resized = cv2.resize(img, dsize=shape[::-1], interpolation=interpolation)
+    return np.clip(resized, min_val, max_val)
+
+
+def realfftconvolve2d(image, kernel):
+    """Convolve image with kernel using real FFT.
+
+    Parameters
+    ----------
+    image : np.ndarray
+        Image.
+    kernel : np.ndarray
+        Kernel.
+
+    Returns
+    -------
+    np.ndarray
+        Convolved image.
+    """
+    image_shape = np.array(image.shape)
+
+    fft_shape = image_shape + np.array(kernel.shape) - 1
+
+    H = np.fft.rfft2(kernel, s=fft_shape)
+    I = np.fft.rfft2(image, s=fft_shape)
+    output = np.fft.irfft2(H * I, s=fft_shape)
+
+    # crop out zero padding
+    y_pad_edge = int((fft_shape[0] - image_shape[0]) / 2)
+    x_pad_edge = int((fft_shape[1] - image_shape[1]) / 2)
+    output = output[
+        y_pad_edge : y_pad_edge + image_shape[0], x_pad_edge : x_pad_edge + image_shape[1]
+    ]
+    return output
+
+
+def prepare_object_plane(
+    obj,
+    object_height,
+    scene2mask,
+    mask2sensor,
+    sensor_size,
+    sensor_dim,
+    random_shift=False,
+):
+    """
+    Prepare object plane for convolution with PSF.
+
+    Parameters
+    ----------
+    obj : np.ndarray
+        Input image (HxWx3).
+    object_height : float
+        Height of object plane in meters.
+    scene2mask : float
+        Distance from scene to mask in meters.
+    mask2sensor : float
+        Distance from mask to sensor in meters.
+    sensor_size : tuple
+        Size of sensor in meters.
+    sensor_dim : tuple
+        Dimension of sensor in pixels.
+    random_shift : bool
+        Randomly shift resized obj in its plane.
+
+    Returns
+    -------
+    np.ndarray
+        Object plane.
+    """
+    if torch.is_tensor(obj):
+        axes = (-2, -1)
+    else:
+        axes = (0, 1)
+
+    # determine object height in pixels
+    input_dim = np.array([obj.shape[_ax] for _ax in axes])
+    magnification = mask2sensor / scene2mask
+    scene_dim = np.array(sensor_size) / magnification
+    object_height_pix = int(np.round(object_height / scene_dim[1] * sensor_dim[1]))
+    scaling = object_height_pix / input_dim[1]
+    object_dim = tuple((np.round(input_dim * scaling)).astype(int))
+
+    if torch.is_tensor(obj):
+        object_plane = resize_torch(obj, size=object_dim)
+    else:
+        object_plane = resize(obj, shape=object_dim)
+
+    # pad object plane to convolution size
+    padding = sensor_dim - object_dim
+    left = padding[1] // 2
+    right = padding[1] - left
+    top = padding[0] // 2
+    bottom = padding[0] - top
+
+    if top < 0:
+        top = 0
+        bottom = 0
+    if left < 0:
+        left = 0
+        right = 0
+
+    if torch.is_tensor(obj):
+        object_plane = torch.nn.functional.pad(
+            object_plane, pad=(left, right, top, bottom), mode="constant", value=0.0
+        )
+
+        object_plane_shape = np.array(object_plane.shape[-2:])
+
+    else:
+        pad_width = [(0, 0) for _ in range(len(obj.shape))]
+        pad_width[axes[0]] = (top, bottom)
+        pad_width[axes[1]] = (left, right)
+        pad_width = tuple(pad_width)
+        object_plane = np.pad(object_plane, pad_width=pad_width, mode="constant")
+
+        object_plane_shape = np.array(object_plane.shape[:2])
+
+    # remove extra pixels if height extended beyond sensor
+    if (object_plane_shape != sensor_dim).any():
+        object_plane = crop(object_plane, shape=sensor_dim)
+
+    if random_shift:
+        hshift = int(np.random.uniform(low=-left, high=right))
+        vshift = int(np.random.uniform(low=-bottom, high=top))
+        if torch.is_tensor(obj):
+            object_plane = torch.roll(object_plane, shifts=(vshift, hshift), dims=axes)
+        else:
+            object_plane = np.roll(object_plane, shift=hshift, axis=axes[1])
+            object_plane = np.roll(object_plane, shift=vshift, axis=axes[0])
+
+    return object_plane

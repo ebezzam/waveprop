@@ -1,8 +1,100 @@
-# waveprop
+# waveprop: Diffraction-based wave propagation simulator with PyTorch support
+
+Python simulator for optical wave propagation based on scalar diffraction theory. Multiple propagation models are 
+supported, with the desired propagation distance / complexity determining which one may be best. PyTorch support enables GPU acceleration
+and end-to-end training of arbitrary apertures.
+
+![lcav](/data/lcav.gif)
+
+## Features
+
+- Multiple scalar diffraction models: Fraunhofer, Fresnel, angular spectrum method, direct integration.
+- Polychromatic through CIE color matching functions.
+- Off-axis propagation and rescaling.
+- PyTorch support (for GPU acceleration and end-to-end training).
+- Arbitrary amplitude or phase masks.
+- Spatial light modulator (SLM) simulator which incorporates deadspace and color filter.
+
+## Installation
+
+```sh
+pip install waveprop
+```
+
+To develop locally and/or play with examples, we recommend the following steps:
+```sh
+# create virtual environment
+conda create -n waveprop python=3.9
+conda activate waveprop
+
+# install
+pip install -e .
+
+# for CUDA, check docs for appropriate command: https://pytorch.org/
+conda install pytorch torchvision cudatoolkit=11.3 -c pytorch
+
+# for some examples (e.g. holography.py)
+pip install joblib imageio click
+
+# run tests
+pytest tests/
+```
+
+# New release and upload to PyPi
+
+From master branch of original repo, and using the appropriate value for `X.X.X`:
+
+```
+# Create tag and upload
+git tag -a vX.X.X -m "Description."
+git push origin vX.X.X
+
+# Change version number in setup.py
+python setup.py sdist
+
+# Create package and upload to Pypi
+twine upload dist/waveprop-X.X.X.tar.gz   
+```
+
+You will need a username and password for uploading to PyPi.
+
+Finally, [on GitHub](https://github.com/ebezzam/waveprop/tags) set the new tag as the latest release by pressing the three dots to the right and selecting "Edit release, at top right selecting "Edit tag", and then publishing it!
+
+## Examples
+
+In the [`examples`] folder are various scripts demonstrating the features of `waveprop`. It is recommended to run them from the repository root, as shown below.
+
+#### Comparing propagation models
+
+#### Polychromatic simulation
+
+#### Off-axis and rescaling
+
+#### PyTorch support
+
+#### Spatial light modulator
+
+#### Holography
+
+The above GIF showing the propagation of a holography pattern was generated with the following command:
+
+```
+python examples/holography.py --target data/lcav.png --invert
+```
+
+The file path can be set to any local path, however the target will be reshaped to a square.
+
+If only interested in the holography pattern at a single distance, e.g. the focal plane, the following command can be run, which will produce a GIF with a single image
+
+```
+python examples/holography.py --target data/lcav.png --invert --f_lens 0.5 --z_start 0.5 --nz 1
+```
+
 
 Scripts and functions to simulate free-space optical propagation. 
 
 In the `examples` folder:
+- `holography.py`: determing phase pattern for holography and propagating over distances with angular spectrum method.
 - `adafruit_slm.py`: polychromatric simulation of amplitude SLM with or without deadspace.
 - `adafruit_slm_mono_pytorch.py`: monochromatric simulation of amplitude SLM with PyTorch support.
 - `square_ap_video.py`: to compare various propagation approaches while varying the distance.
@@ -29,18 +121,6 @@ output sampling.
   
 Note that dimensions `y` corresponds to the first dimension (rows) while `x`
 corresponds to the second dimension (columns).
-
-## Local install
-
-```sh
-# recommended to create virtual environment
-virtualenv -p python3 waveprop_env
-source waveprop_env/bin/activate
-
-# install
-pip install -e .
-git+https://github.com/ebezzam/pyFFS.git@task/add_examples#egg=pyFFS
-```
 
 ## Literature and references
 
@@ -115,3 +195,7 @@ Compare / mention complexity of different approaches
     - Monochromatic: https://github.com/rafael-fuente/Diffraction-Simulations--Angular-Spectrum-Method/blob/5b3610643b97ab6b81c80ef4c8aa5b0d9501f314/diffractsim/monochromatic_simulator.py#L191
     - Polychromatic: https://github.com/rafael-fuente/Diffraction-Simulations--Angular-Spectrum-Method/blob/5b3610643b97ab6b81c80ef4c8aa5b0d9501f314/diffractsim/polychromatic_simulator.py#L190
   
+
+## License
+
+MIT

@@ -14,7 +14,7 @@ def fresnel_number(wv, dz, a):
     dz : distance to observation plane [m]
     a : radius of observation plane [m]
     """
-    return a ** 2 / wv / dz
+    return a**2 / wv / dz
 
 
 def fresnel_saleh(wv, dz, x, y, tol=TOL, verbose=True):
@@ -31,9 +31,9 @@ def fresnel_saleh(wv, dz, x, y, tol=TOL, verbose=True):
 
     """
     # output max radius
-    a = np.sqrt(np.max(x ** 2 + y ** 2))
+    a = np.sqrt(np.max(x**2 + y**2))
 
-    cond = (tol * a ** 4 / 4 / wv) ** (1 / 3)
+    cond = (tol * a**4 / 4 / wv) ** (1 / 3)
     if verbose:
         if dz > cond:
             print("Saleh Fresnel condition [>{} m] met!".format(cond))
@@ -57,11 +57,11 @@ def fresnel_valid_output_region(wv, dz, tol=TOL):
     """
     From Saleh, by looking at Fresnel number, Eq 4.1-13 isolate radius `a`
     """
-    return (wv * dz ** 3 * 4 * tol) ** (1 / 4)
+    return (wv * dz**3 * 4 * tol) ** (1 / 4)
 
 
 def distance_from_output_region(wv, r_out, tol=TOL):
-    return r_out ** 2 / wv / tol
+    return r_out**2 / wv / tol
 
 
 def fraunhofer_saleh(wv, dz, x1, y1, x2, y2, tol=TOL, verbose=True):
@@ -81,11 +81,11 @@ def fraunhofer_saleh(wv, dz, x1, y1, x2, y2, tol=TOL, verbose=True):
     """
 
     # output and input max radius
-    a = np.sqrt(np.max(x2 ** 2 + y2 ** 2))
-    b = np.sqrt(np.max(x1 ** 2 + y1 ** 2))
+    a = np.sqrt(np.max(x2**2 + y2**2))
+    b = np.sqrt(np.max(x1**2 + y1**2))
 
-    cond_in = tol * b ** 2 / wv
-    cond_out = tol * a ** 2 / wv
+    cond_in = tol * b**2 / wv
+    cond_out = tol * a**2 / wv
     cond = max(cond_in, cond_out)
     if verbose:
         if dz > cond:
@@ -110,7 +110,7 @@ def fraunhofer_schmidt(wv, dz, diam, verbose=True):
     diam : diameter of source aperture[m]
 
     """
-    cond = 2 * diam ** 2 / wv
+    cond = 2 * diam**2 / wv
     if verbose:
         if dz > cond:
             print("Weak Fraunhofer condition [>{} m] met!".format(cond))
@@ -163,7 +163,7 @@ def fraunhofer_goodman(wv, dz, x1, y1, x2, y2, tol=TOL, verbose=True):
 
     # (typically) stricter Fraunhofer condition
     k = 2 * np.pi / wv
-    max_rad = np.max(x1 ** 2 + y1 ** 2)
+    max_rad = np.max(x1**2 + y1**2)
     cond = max(k * max_rad / 2 * tol, cond)
     if verbose:
         if dz > cond:

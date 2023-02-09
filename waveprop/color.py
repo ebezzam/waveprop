@@ -13,7 +13,7 @@ from torchvision.transforms.functional import rgb_to_grayscale
 
 def rgb2gray(rgb, weights=None):
     """
-    Convert RGB array to grayscale.
+    Convert RGB array to grayscale. Supports PyTorch and NumPy.
 
     Parameters
     ----------
@@ -28,15 +28,13 @@ def rgb2gray(rgb, weights=None):
         Grayscale image of dimension (height, width).
 
     """
-    if weights is None:
-        weights = np.array([0.299, 0.587, 0.144])
     if torch.is_tensor(rgb):
         return rgb_to_grayscale(rgb)
     else:
         if weights is None:
-            weights = np.array([0.299, 0.587, 0.144])
+            weights = np.array([0.299, 0.587, 0.114])
         assert len(weights) == 3
-        return np.tensordot(rgb, weights, axes=((0,), 0))
+        return np.tensordot(rgb, weights, axes=((2,), 0))
 
 
 class ColorSystem:
@@ -106,6 +104,10 @@ class ColorSystem:
                 [0.055630079696994, -0.203976958888977, 1.056971514242879],
             ]
         )
+
+    @classmethod
+    def rgb(cls):
+        return cls(wv=np.array([460, 550, 640]) * 1e-9)
 
     def to_rgb(self, vals, clip=True, gamma=None):
         """
