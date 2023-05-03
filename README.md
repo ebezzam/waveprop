@@ -30,14 +30,28 @@ conda activate waveprop
 # install
 pip install -e .
 
+# Not needed? as inside setup
 # for CUDA, check docs for appropriate command: https://pytorch.org/
 conda install pytorch torchvision cudatoolkit=11.3 -c pytorch
 
-# for some examples (e.g. holography.py)
-pip install joblib imageio click
+# for examples
+pip install joblib imageio hydra-core
 
 # run tests
 pytest tests/
+```
+
+# Code formatting
+
+Through Git pre-hooks.
+```
+# inside virtual environment
+(waveprop) pip install pre-commit
+(waveprop) pip install black
+
+# Install git hooks
+(waveprop) pre-commit install
+# pre-commit installed at .git/hooks/pre-commit
 ```
 
 # New release and upload to PyPi
@@ -62,7 +76,7 @@ Finally, [on GitHub](https://github.com/ebezzam/waveprop/tags) set the new tag a
 
 ## Examples
 
-In the [`examples`] folder are various scripts demonstrating the features of `waveprop`. It is recommended to run them from the repository root, as shown below.
+In the `examples` folder are various scripts demonstrating the features of `waveprop`. It is recommended to run them from the repository root, as shown below.
 
 #### Comparing propagation models
 

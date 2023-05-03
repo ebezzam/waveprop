@@ -1,0 +1,26 @@
+# python examples/prop_models/circ_ap.py
+defaults:
+  - defaults
+  - _self_
+
+
+sim:
+  N: 512  # number of grid points per size
+  L: 7.5e-3  # total size of grid
+  diam: 1e-3  # diameter of aperture [m]
+  wv: 1e-6  # wavelength
+  dz: 20  # distance [m]
+
+shifted_fresnel:
+  output_scaling: 15
+  relative_shift: 0.25
+
+plot:
+  alpha: 0.7 # opacity of plots
+  dpi: 300 # resolution of plots
+  xlim: [-0.1, 0.1]
+  font:
+    family: "Times New Roman"
+    weight: "normal"
+    size: 20 # fontsize of plots
+  
