@@ -265,9 +265,9 @@ def angular_spectrum_np(
     #     in_shift = [in_shift, in_shift]
     # assert len(in_shift) == 2
 
+    Ny, Nx = u_in.shape
     if pad:
         # zero pad to simulate linear convolution
-        Ny, Nx = u_in.shape
         u_in_pad = zero_pad(u_in)
     else:
         u_in_pad = u_in
@@ -303,19 +303,8 @@ def angular_spectrum_np(
     # - Eq 13 and 20 of Matsushima et al. (2009)
     # - Table 1 of Matsushima (2010) for generalization to off-axis
     if bandlimit:
-        # H = _bandpass(
-        #     H, fX, fY, Sx=Nx * d1[1], Sy=Ny * d1[0], x0=out_shift[1], y0=out_shift[0], z0=dz, wv=wv
-        # )
         H = _bandpass(
-            H,
-            fX,
-            fY,
-            Sx=Nx_pad * d1[1],
-            Sy=Ny_pad * d1[0],
-            x0=out_shift[1],
-            y0=out_shift[0],
-            z0=dz,
-            wv=wv,
+            H, fX, fY, Sx=Nx * d1[1], Sy=Ny * d1[0], x0=out_shift[1], y0=out_shift[0], z0=dz, wv=wv
         )
 
     if return_H:
@@ -633,6 +622,8 @@ def angular_spectrum(
     if H is None:
         H = _form_transfer_function(
             u_in_pad,
+            Ny,
+            Nx,
             d1,
             wv,
             dz,
@@ -736,6 +727,8 @@ def angular_spectrum(
 
 def _form_transfer_function(
     u_in_pad,
+    Ny,
+    Nx,
     d1,
     wv,
     dz,
@@ -861,8 +854,8 @@ def _form_transfer_function(
                 H,
                 fX,
                 fY,
-                Sx=Nx_pad * d1[1],
-                Sy=Ny_pad * d1[0],
+                Sx=Nx * d1[1],
+                Sy=Ny * d1[0],
                 x0=out_shift[1],
                 y0=out_shift[0],
                 z0=dz.cpu().numpy()[0] if torch.is_tensor(dz) else dz,
@@ -891,8 +884,8 @@ def _form_transfer_function(
                 H,
                 fX,
                 fY,
-                Sx=Nx_pad * d1[1],
-                Sy=Ny_pad * d1[0],
+                Sx=Nx * d1[1],
+                Sy=Ny * d1[0],
                 x0=out_shift[1],
                 y0=out_shift[0],
                 z0=dz,
