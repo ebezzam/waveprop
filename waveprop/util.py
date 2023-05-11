@@ -194,7 +194,9 @@ def jinc(x):
     return y
 
 
-def plot2d(x_vals, y_vals, Z, pcolormesh=False, colorbar=True, title="", ax=None):
+def plot2d(
+    x_vals, y_vals, Z, pcolormesh=False, colorbar=True, title="", ax=None, gamma=None, **kwargs
+):
     """
     pcolormesh doesn't keep square aspect ratio for each pixel
     """
@@ -210,6 +212,9 @@ def plot2d(x_vals, y_vals, Z, pcolormesh=False, colorbar=True, title="", ax=None
         dy = y_vals[1] - y_vals[0]
         y_vals -= dy / 2
         y_vals = np.append(y_vals, [y_vals[-1] + dy])
+
+    if gamma is not None:
+        Z = gamma_correction(Z, gamma)
 
     if ax is None:
         fig = plt.figure()
@@ -316,8 +321,10 @@ def rect_tiling(N_in, N_out, L, n_tiles, prop_func):
         tiles.append(u_out)
 
     # combine tiles
-    myorder = [0, 3, 6, 1, 4, 7, 2, 5, 8]
-    tiles = [tiles[i] for i in myorder]
+    order = np.arange(n_tiles**2).reshape(n_tiles, n_tiles)
+    order = (order.T).ravel()
+
+    tiles = [tiles[i] for i in order]
     u_out = np.array(tiles).reshape(n_tiles, n_tiles, N_in, N_in)
     u_out = np.transpose(u_out, axes=(0, 2, 1, 3))
     u_out = np.concatenate(u_out, axis=0)
@@ -480,38 +487,6 @@ def resize(img, factor=None, shape=None, interpolation=cv2.INTER_CUBIC, axes=(0,
             return img
         resized = cv2.resize(img, dsize=shape[::-1], interpolation=interpolation)
     return np.clip(resized, min_val, max_val)
-
-
-def realfftconvolve2d(image, kernel):
-    """Convolve image with kernel using real FFT.
-
-    Parameters
-    ----------
-    image : np.ndarray
-        Image.
-    kernel : np.ndarray
-        Kernel.
-
-    Returns
-    -------
-    np.ndarray
-        Convolved image.
-    """
-    image_shape = np.array(image.shape)
-
-    fft_shape = image_shape + np.array(kernel.shape) - 1
-
-    H = np.fft.rfft2(kernel, s=fft_shape)
-    I = np.fft.rfft2(image, s=fft_shape)
-    output = np.fft.irfft2(H * I, s=fft_shape)
-
-    # crop out zero padding
-    y_pad_edge = int((fft_shape[0] - image_shape[0]) / 2)
-    x_pad_edge = int((fft_shape[1] - image_shape[1]) / 2)
-    output = output[
-        y_pad_edge : y_pad_edge + image_shape[0], x_pad_edge : x_pad_edge + image_shape[1]
-    ]
-    return output
 
 
 def prepare_object_plane(
