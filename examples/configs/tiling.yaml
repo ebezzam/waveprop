@@ -1,0 +1,15 @@
+# python examples/prop/tiling.py
+defaults:
+  - defaults
+  - _self_
+
+sim:
+  N_in: 128
+  diam: [1e-3, 3e-3]  # dimensions of rect aperture [m]
+  n_tiles: 3   # number of tiles per dimension
+  dz_vals: [1, 0.1]  # distance [m]
+
+  # whether input/output planes are same size, 
+  # OR each output tile has same size as input.
+  # Latter leads to aliasing at the moment...
+  same_size: True

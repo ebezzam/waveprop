@@ -1,0 +1,9 @@
+# python examples/prop/square_ap_gif.py
+defaults:
+  - defaults
+  - _self_
+
+sim:
+  N: 128
+  diam: 2e-3  # side length [m]
+  wv: 635e-9   # wavelength [m]

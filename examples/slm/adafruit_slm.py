@@ -12,22 +12,34 @@ import progressbar
 from waveprop.util import sample_points, plot2d, rect2d
 from waveprop.rs import angular_spectrum
 from waveprop.color import ColorSystem
-from waveprop.slm import get_centers, get_deadspace, get_active_pixel_dim
+from waveprop.slm import get_centers, get_active_pixel_dim
 import matplotlib.pyplot as plt
+from waveprop.devices import SLMOptions, slm_dict, SLMParam, SensorOptions, sensor_dict
 
 
-slm_dim = [128 * 3, 160]
-slm_pixel_dim = np.array([0.06e-3, 0.18e-3])  # RGB sub-pixel
-# slm_dim = [128, 160]
-# slm_pixel_dim = [0.18e-3, 0.18e-3]
-slm_size = [28.03e-3, 35.04e-3]
-N = 128
-deadspace = True  # model deadspace (much slower)
-pyffs = True  # won't be used if interpolation is not needed
+# SLM parameters (Adafruit screen)
+slm_config = slm_dict[SLMOptions.ADAFRUIT.value]
+slm_pixel_dim = slm_config[SLMParam.CELL_SIZE]
 
 # RPi HQ camera datasheet: https://www.arducam.com/sony/imx477/#imx477-datasheet
-rpi_dim = [3040, 4056]
-rpi_pixel_dim = [1.55e-6, 1.55e-6]
+sensor_config = sensor_dict[SensorOptions.RPI_HQ.value]
+
+
+# slm_dim = [128 * 3, 160]
+# slm_pixel_dim = np.array([0.06e-3, 0.18e-3])  # RGB sub-pixel
+# # slm_dim = [128, 160]
+# # slm_pixel_dim = [0.18e-3, 0.18e-3]
+# slm_size = [28.03e-3, 35.04e-3]
+
+N = 128
+deadspace = False  # model deadspace (much slower)
+# TODO discretize with deadspace
+pyffs = True  # won't be used if interpolation is not needed
+
+# # RPi HQ camera datasheet: https://www.arducam.com/sony/imx477/#imx477-datasheet
+# rpi_dim = [3040, 4056]
+# rpi_pixel_dim = [1.55e-6, 1.55e-6]
+
 dz = 5e-3
 # dz = 1e-2
 sensor_crop_fraction = 0.5
@@ -41,26 +53,31 @@ cs = ColorSystem(n_wavelength=n_wavelength)
 # wavelength = np.array([450e-9, 520e-9, 638e-9])  # wavelength of each color
 # cs = ColorSystem(wv=wavelength)
 
-# rough estimate of dead space between pixels
-dead_space_pix = get_deadspace(slm_size, slm_dim, slm_pixel_dim)
-pixel_pitch = slm_pixel_dim + dead_space_pix
+# # rough estimate of dead space between pixels
+# dead_space_pix = get_deadspace(slm_size, slm_dim, slm_pixel_dim)
+# pixel_pitch = slm_pixel_dim + dead_space_pix
 
 """ determining overlapping region and number of SLM pixels """
 overlapping_mask_size, overlapping_mask_dim, n_active_slm_pixels = get_active_pixel_dim(
-    sensor_dim=rpi_dim,
-    sensor_pixel_size=rpi_pixel_dim,
+    sensor_config=sensor_config,
     sensor_crop=sensor_crop_fraction,
-    slm_size=slm_size,
-    slm_dim=slm_dim,
-    slm_pixel_size=slm_pixel_dim,
-    deadspace=deadspace,
+    slm_config=slm_config,
 )
+# overlapping_mask_size, overlapping_mask_dim, n_active_slm_pixels = get_active_pixel_dim(
+#     sensor_dim=rpi_dim,
+#     sensor_pixel_size=rpi_pixel_dim,
+#     sensor_crop=sensor_crop_fraction,
+#     slm_size=slm_size,
+#     slm_dim=slm_dim,
+#     slm_pixel_size=slm_pixel_dim,
+#     deadspace=deadspace,
+# )
 print(overlapping_mask_size)
 print(overlapping_mask_dim)
 print(n_active_slm_pixels)
 
 """ generate random mask """
-centers = get_centers(n_active_slm_pixels, pixel_pitch=pixel_pitch)
+centers = get_centers(n_active_slm_pixels, pixel_pitch=slm_config[SLMParam.PITCH])
 mask = np.random.rand(*n_active_slm_pixels)
 mask_flat = mask.reshape(-1)
 
@@ -82,6 +99,8 @@ else:
 
 # plot input
 plot2d(x1.squeeze(), y1.squeeze(), u_in, title="Aperture")
+
+plt.savefig("input.png", dpi=300)
 
 """ simulate """
 if deadspace:
@@ -130,4 +149,4 @@ else:
     plot2d(x2, y2, rgb, title="BLAS {} m".format(dz))
 
 
-plt.show()
+plt.savefig("output.png", dpi=300)

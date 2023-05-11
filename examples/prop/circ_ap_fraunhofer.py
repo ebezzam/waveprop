@@ -21,7 +21,7 @@ from waveprop.fraunhofer import fraunhofer, fraunhofer_prop_circ_ap
 from waveprop.condition import fraunhofer_schmidt, fraunhofer_goodman, fraunhofer_saleh
 
 
-@hydra.main(version_base=None, config_path="../configs", config_name="circ_ap")
+@hydra.main(version_base=None, config_path="../configs", config_name="circ_ap_fraunhofer")
 def circ_ap(config):
 
     matplotlib.rc("font", **config.plot.font)
@@ -36,7 +36,6 @@ def circ_ap(config):
 
     # shift fresnel parameters
     output_scaling = config.shifted_fresnel.output_scaling
-    # out_shift = output_scaling * d1 * N / 2
     out_shift = output_scaling * L * config.shifted_fresnel.relative_shift
 
     print("\nPROPAGATION DISTANCE : {} m".format(dz))
@@ -94,24 +93,35 @@ def circ_ap(config):
     plt.title("amplitude, y = 0")
 
     plt.legend()
-    plt.yscale("log")
+    if config.plot.cross_section_log:
+        plt.yscale("log")
     if config.plot.xlim is not None:
         plt.xlim(config.plot.xlim)
 
     plt.savefig("2_prop_cross_section.png", dpi=config.plot.dpi)
 
     # plot input
-    plot2d(x1.squeeze(), y1.squeeze(), u_in, title="Aperture")
+    plot2d(x1.squeeze(), y1.squeeze(), u_in, title="Aperture", gamma=config.plot.gamma)
     plt.savefig("1_input.png", dpi=config.plot.dpi)
 
     # plot outputs
-    ax = plot2d(x2.squeeze(), y2.squeeze(), np.abs(u_out_fraun), title="Fraunhofer")
+    ax = plot2d(
+        x2.squeeze(), y2.squeeze(), np.abs(u_out_fraun), title="Fraunhofer", gamma=config.plot.gamma
+    )
     plt.savefig("3_fraunhofer.png", dpi=config.plot.dpi)
 
     ax.set_xlim([np.min(x2_sfres), np.max(x2_sfres)])
     ax.set_ylim([np.min(y2_sfres), np.max(y2_sfres)])
-    plot2d(x2_sfres.squeeze(), y2_sfres.squeeze(), np.abs(u_out_sfres), title="Shifted Fresnel")
+    plot2d(
+        x2_sfres.squeeze(),
+        y2_sfres.squeeze(),
+        np.abs(u_out_sfres),
+        title="Shifted Fresnel",
+        gamma=config.plot.gamma,
+    )
     plt.savefig("4_shifted_fresnel.png", dpi=config.plot.dpi)
+
+    print(f"\nSaved figures to {os.getcwd()}")
 
 
 if __name__ == "__main__":

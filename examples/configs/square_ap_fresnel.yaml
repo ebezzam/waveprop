@@ -1,0 +1,7 @@
+# python examples/prop/square_ap_fresnel.py
+defaults:
+  - defaults
+  - _self_
+
+sim:
+  diam: 1e-3  # side length of aperture [m]

@@ -1,3 +1,21 @@
 hydra:
   job:
     chdir: True    # change to output folder
+
+
+sim:
+  N: 512  # number of grid points per size
+  L: 1e-2  # side length of (square) simulation [m]
+  wv: 1e-6  # wavelength [m]
+  dz: 1  # distance [m]
+
+plot:
+  gamma: 5
+  cross_section_log: False
+  alpha: 0.7 # opacity of plots
+  dpi: 300 # resolution of plots
+  xlim: [-0.1, 0.1]
+  font:
+    family: "Times New Roman"
+    weight: "normal"
+    size: 20 # fontsize of plots

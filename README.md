@@ -78,17 +78,57 @@ Finally, [on GitHub](https://github.com/ebezzam/waveprop/tags) set the new tag a
 
 In the `examples` folder are various scripts demonstrating the features of `waveprop`. It is recommended to run them from the repository root, as shown below.
 
+Note that dimensions `y` corresponds to the first dimension (rows) while `x`
+corresponds to the second dimension (columns).
+
+Output images are stored in `outputs` with the current day and timestamp.
+
 #### Comparing propagation models
+
+There are three common propagation models: Fraunhofer, Fresnel, and angular spectrum.
+Depending on the propagation distance and aperture size, one model may be more appropriate than the other.
+
+The following propagation models are implemented. All make use of FFT unless otherwise noted (TODO: add references)
+- Fraunhofer.
+- Fresnel (one-step, two-step, multi-step, angular spectrum).
+- Angular spectrum, with evanescent waves and option to bandlimit.
+- Direct integration (no FFT), "brute force" numerical integration.
+- FFT-DI, linearizes circular convolution of direction integration in DFT domain.
+- Shifted Fresnel, uses three-FFT to model propagation off of optical axis with arbitrary input and
+output sampling.
+
+The following scripts demonstrate the differences between the models, with comparisons to direct integration of the Rayleigh-Sommerfeld integral (computationally expensive).
+
+- `python examples/prop/circ_ap_fraunhofer.py`: simulate circular aperture in Fraunhofer regime, with Fraunhofer and Fresnel diffraction models.
+- `python examples/prop/square_ap_fresnel.py`: simulate square aperture in Fresnel regime, with Fraunhofer, Fresnel, direct integration, and angular spectrum diffraction models.
+- `python examples/prop/bl_angular_spectrum.py`: show benefit of band-limiting angular spectrum method.
+- `python examples/prop/square_ap_gif.py`: compare various propagation approaches while varying the distance and store as GIF.
+
+#### Off-axis, rescaling, and tiling
+
+The (above) standard propagation model have a fixed input and output sampling. The following scripts demonstrate how to simulate off-axis propagation and rescaling. 
+This can provide a lot of flexbility in simulation. The relevant papers are [Shifted Fresnel diffraction for computational holography] (https://opg.optica.org/oe/fulltext.cfm?uri=oe-15-9-5631&id=132698), [Shifted angular spectrum method for off-axis numerical propagation](https://opg.optica.org/oe/fulltext.cfm?uri=oe-18-17-18453&id=205150), and [Band-limited angular spectrum numerical propagation method with selective scaling of observation window size and sample number](https://opg.optica.org/josaa/fulltext.cfm?uri=josaa-29-11-2415&id=244612).
+
+- `python examples/prop/off_axis.py`: comparing off-axis simulation with Fresnel and bandlimited angular spectrum. In the near-field, shifted Fresnel is not valid.
+- `python examples/prop/rescale.py`: comparing off-axis, rescaled simulation with Fresnel and angular spectrum. Shifted Fresnel is not valid in near-field and when rescaling such that output is larger than input (e.g. with `python examples/prop/rescale.py -cn zoom_out`).
+- `python examples/prop/tiling.py`: apply rectangular tiling as in [Shifted Fresnel](https://opg.optica.org/oe/fulltext.cfm?uri=oe-15-9-5631&id=132698) for increasing the resolution at the target/propagated plane. Show how Fresnel is not valid for near-field, while angular spectrum is.
 
 #### Polychromatic simulation
 
-#### Off-axis and rescaling
+The above scripts demonstrate monochromatic simulation. The following example shows how to simulate polychromatic light, i.e. with multiple wavelengths.
 
-#### PyTorch support
+- `python examples/prop/square_ap_gif.py`: polychromatic simulation of square aperture while varying the distance. Acceleration with GPU (via PyTorch) and parallelization (via joblib) is demonstrated.
 
-#### Spatial light modulator
 
-#### Holography
+#### PyTorch support (TODO)
+
+
+#### Spatial light modulator (TODO)
+
+- `adafruit_slm.py`: polychromatric simulation of amplitude SLM with or without deadspace.
+- `adafruit_slm_mono_pytorch.py`: monochromatric simulation of amplitude SLM with PyTorch support.
+
+#### Holography (TODO)
 
 The above GIF showing the propagation of a holography pattern was generated with the following command:
 
@@ -105,36 +145,23 @@ python examples/holography.py --target data/lcav.png --invert --f_lens 0.5 --z_s
 ```
 
 
+
+
 Scripts and functions to simulate free-space optical propagation. 
 
 In the `examples` folder:
 - `holography.py`: determing phase pattern for holography and propagating over distances with angular spectrum method.
-- `adafruit_slm.py`: polychromatric simulation of amplitude SLM with or without deadspace.
-- `adafruit_slm_mono_pytorch.py`: monochromatric simulation of amplitude SLM with PyTorch support.
-- `square_ap_video.py`: to compare various propagation approaches while varying the distance.
-- `square_ap_poly_video.py`: polychromatic simulation of square aperture while varying the distance.
-- `circ_ap_fraunhofer.py`: simulate circular aperture in the Fraunhofer regime.
-- `square_ap_fresnel.py`: simulate square aperture in the Fresnel regime.
-- `bandlimiting_angular_spectrum.py`: show benefit of band-limiting angular spectrum method.
-- `off_axis.py`: comparing off-axis simulation with Fresnel, angular spectrum, and direct integration.
-- `rescale.py`: comparing off-axis, rescaled simulation with Fresnel and angular spectrum.
+
+
+
 - `circ_ap_lab.py`: simulate circular aperture with command-line defined arguments. Default is our lab setup.
 - `rect_ap_lab.py`: simulate rectangular aperture with command-line defined arguments. Default is our lab setup.
 - `single_slit_lab.py` (WIP): simulate single-slit with command-line defined arguments. Default is our lab setup.
 
 NB: `click` is required for some scripts for parsing command-line arguments.
 
-Following propagation models are implemented. All make use of FFT unless otherwise noted.
-- Fraunhofer.
-- Fresnel (one-step, two-step, multi-step, angular spectrum).
-- Angular spectrum, with evanescent waves and option to bandlimit.
-- Direct integration (no FFT), "brute force" numerical integration.
-- FFT-DI, linearizes circular convolution of direction integration in DFT domain.
-- Shifted Fresnel, uses three-FFT to model propagation off of optical axis with arbitrary input and
-output sampling.
   
-Note that dimensions `y` corresponds to the first dimension (rows) while `x`
-corresponds to the second dimension (columns).
+
 
 ## Literature and references
 
