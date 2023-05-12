@@ -55,14 +55,14 @@ Output images are stored in `outputs` with the current day and timestamp.
 There are three common propagation models: Fraunhofer, Fresnel, and angular spectrum.
 Depending on the propagation distance and aperture size, one model may be more appropriate than the other.
 
-The following propagation models are implemented. All make use of FFT unless otherwise noted (TODO: add references)
-- Fraunhofer.
-- Fresnel (one-step, two-step, multi-step, angular spectrum).
-- Angular spectrum, with evanescent waves and option to bandlimit.
-- Direct integration (no FFT), "brute force" numerical integration.
-- FFT-DI, linearizes circular convolution of direction integration in DFT domain.
-- Shifted Fresnel, uses three-FFT to model propagation off of optical axis with arbitrary input and
-output sampling.
+The following propagation models are implemented. All make use of the FFT unless otherwise noted. The implementations for Fraunhofer and Fresnel were heavily inspired from the MATLAB scripts for [this book](https://www.spiedigitallibrary.org/ebooks/PM/Numerical-Simulation-of-Optical-Wave-Propagation-with-Examples-in-MATLAB/eISBN-9780819483270/10.1117/3.866274?SSO=1).
+
+- Fraunhofer: best suited for far-field as it approximates wave-fronts as planar.
+- Fresnel (one-step, two-step, multi-step, angular spectrum): more suitable for near-field as it approximates wave-fronts as parabolic.
+- Angular spectrum, with evanescent waves and option to [bandlimit](https://opg.optica.org/oe/fulltext.cfm?uri=oe-17-22-19662&id=186848). Best suited for very near-field, as it maintains spherical wave-fronts, but more prone to aliasing (which is what bandlimiting can help with).
+- Direct integration (no FFT), "brute force" numerical integration, which can be *very* slow, as it directly computes the Rayleigh-Sommerfeld (convolution) integral.
+- FFT-DI, linearizes circular convolution of direction integration in the DFT domain as described [here](https://www.osapublishing.org/ao/fulltext.cfm?uri=ao-45-6-1102&id=87971). Uses three FFTs, and only practical for small output windows.
+- [Shifted Fresnel](https://opg.optica.org/oe/fulltext.cfm?uri=oe-15-9-5631&id=132698): uses three FFTs to model propagation off of the optical axis with arbitrary input and output sampling.
 
 The following scripts demonstrate the differences between the models, with comparisons to direct integration of the Rayleigh-Sommerfeld integral (computationally expensive).
 
@@ -74,11 +74,17 @@ The following scripts demonstrate the differences between the models, with compa
 ### 2. Off-axis, rescaling, and tiling
 
 The (above) standard propagation model have a fixed input and output sampling. The following scripts demonstrate how to simulate off-axis propagation and rescaling. 
-This can provide a lot of flexbility in simulation. The relevant papers are [Shifted Fresnel diffraction for computational holography] (https://opg.optica.org/oe/fulltext.cfm?uri=oe-15-9-5631&id=132698), [Shifted angular spectrum method for off-axis numerical propagation](https://opg.optica.org/oe/fulltext.cfm?uri=oe-18-17-18453&id=205150), and [Band-limited angular spectrum numerical propagation method with selective scaling of observation window size and sample number](https://opg.optica.org/josaa/fulltext.cfm?uri=josaa-29-11-2415&id=244612).
+This can provide a lot of flexability in simulation.
 
 - `python examples/prop/off_axis.py`: comparing off-axis simulation with Fresnel and bandlimited angular spectrum. In the near-field, shifted Fresnel is not valid.
 - `python examples/prop/rescale.py`: comparing off-axis, rescaled simulation with Fresnel and angular spectrum. Shifted Fresnel is not valid in near-field and when rescaling such that output is larger than input (e.g. with `python examples/prop/rescale.py -cn zoom_out`).
 - `python examples/prop/tiling.py`: apply rectangular tiling as in [Shifted Fresnel](https://opg.optica.org/oe/fulltext.cfm?uri=oe-15-9-5631&id=132698) for increasing the resolution at the target/propagated plane. Show how Fresnel is not valid for near-field, while angular spectrum is.
+
+The relevant papers are:
+
+- [Shifted Fresnel diffraction for computational holography (2007)](https://opg.optica.org/oe/fulltext.cfm?uri=oe-15-9-5631&id=132698)
+- [Shifted angular spectrum method for off-axis numerical propagation (2010)](https://opg.optica.org/oe/fulltext.cfm?uri=oe-18-17-18453&id=205150)
+- [Band-limited angular spectrum numerical propagation method with selective scaling of observation window size and sample number (2012)](https://opg.optica.org/josaa/fulltext.cfm?uri=josaa-29-11-2415&id=244612).
 
 ### 3. Polychromatic simulation
 
