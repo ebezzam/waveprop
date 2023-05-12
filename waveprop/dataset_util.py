@@ -1,4 +1,3 @@
-import pandas as pd
 from torch.utils.data import Dataset
 from torchvision import transforms, datasets
 import torch.nn.functional as F
@@ -6,7 +5,6 @@ from PIL import Image
 import os
 import numpy as np
 import glob
-from waveprop.devices import sensor_dict
 from waveprop.simulation import FarFieldSimulator
 from abc import abstractmethod
 
@@ -336,7 +334,11 @@ class FlickrDataset(Dataset):
         """
 
         self.root_dir = root_dir
-        self.df = pd.read_csv(captions_file)
+        try:
+            import pandas as pd
+            self.df = pd.read_csv(captions_file)
+        except ImportError:
+            raise ImportError("Please install pandas to use this dataset")
         self.device = device
 
         transform_list = []

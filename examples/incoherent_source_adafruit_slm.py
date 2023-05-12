@@ -112,6 +112,10 @@ def incoherent_simulation(
     assert crop_fact < 1
     assert d > 0
     assert z > 0
+    if slm_pattern is not None:
+        assert os.path.exists(slm_pattern)
+    if not pytorch:
+        device = "cpu"
 
     # SLM parameters (Adafruit screen)
     slm_config = slm_dict[SLMOptions.ADAFRUIT.value]
