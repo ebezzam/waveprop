@@ -9,6 +9,7 @@ Store comparison as GIF.
 import hydra
 import os
 import imageio
+import progressbar
 import numpy as np
 import time
 from waveprop.util import sample_points, plot2d, rect2d
@@ -25,7 +26,7 @@ def square_ap_gif(config):
     L = config.sim.L  # total size of grid
     diam = config.sim.diam  # diameter of aperture [m]
     wv = config.sim.wv  # wavelength
-    gif_duration = 0.5  # duration of gif [s]
+    gif_duration = config.gif_duration  
     dz_vals = (
         # list(np.arange(start=1, stop=10, step=2, dtype=int) * 1e-3) +
         list(np.arange(start=1, stop=10, step=1) * 1e-2)
@@ -48,9 +49,10 @@ def square_ap_gif(config):
     _, ax = plt.subplots(ncols=5, figsize=(25, 5))
     dz_vals = np.around(dz_vals, decimals=3)
 
+    bar = progressbar.ProgressBar()
     filenames = []
     frames = []
-    for dz in dz_vals:
+    for dz in bar(dz_vals):
         start_time = time.time()
         # apply Fraunhofer
         u_out_fraun, x_fraun, y_raun = fraunhofer(u_in=u_in, wv=wv, d1=d1, dz=dz)
@@ -131,6 +133,7 @@ def square_ap_gif(config):
     plt.ylabel("Seconds")
     plt.xscale("log")
     plt.legend()
+    plt.savefig("computation_time.png")
 
     imageio.mimsave("square_ap.gif", frames, "GIF", duration=gif_duration)
     for filename in set(filenames):

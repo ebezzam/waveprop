@@ -7,3 +7,5 @@ sim:
   N: 128
   diam: 2e-3  # side length [m]
   wv: 635e-9   # wavelength [m]
+
+gif_duration: 0.1   # *should be* duration of gif in seconds, but notice that it's longer

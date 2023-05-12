@@ -95,10 +95,10 @@ def off_axis(config):
             ax=ax_2d[1],
             title="BLAS {} m".format(dz),
         )
-        plt.savefig(f"2_outputs_dz={dz}.png", dpi=config.plot.dpi)
+        plt.savefig(f"{i+2}_outputs_dz={dz}.png", dpi=config.plot.dpi)
 
     # save fig
-    fig.savefig("3_cross_sections.png", dpi=config.plot.dpi)
+    fig.savefig("4_cross_sections.png", dpi=config.plot.dpi)
 
     print(f"\nSaved figures to {os.getcwd()}")
 

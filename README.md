@@ -41,39 +41,6 @@ pip install joblib imageio hydra-core
 pytest tests/
 ```
 
-# Code formatting
-
-Through Git pre-hooks.
-```
-# inside virtual environment
-(waveprop) pip install pre-commit
-(waveprop) pip install black
-
-# Install git hooks
-(waveprop) pre-commit install
-# pre-commit installed at .git/hooks/pre-commit
-```
-
-# New release and upload to PyPi
-
-From master branch of original repo, and using the appropriate value for `X.X.X`:
-
-```
-# Create tag and upload
-git tag -a vX.X.X -m "Description."
-git push origin vX.X.X
-
-# Change version number in setup.py
-python setup.py sdist
-
-# Create package and upload to Pypi
-twine upload dist/waveprop-X.X.X.tar.gz   
-```
-
-You will need a username and password for uploading to PyPi.
-
-Finally, [on GitHub](https://github.com/ebezzam/waveprop/tags) set the new tag as the latest release by pressing the three dots to the right and selecting "Edit release, at top right selecting "Edit tag", and then publishing it!
-
 ## Examples
 
 In the `examples` folder are various scripts demonstrating the features of `waveprop`. It is recommended to run them from the repository root, as shown below.
@@ -83,7 +50,7 @@ corresponds to the second dimension (columns).
 
 Output images are stored in `outputs` with the current day and timestamp.
 
-#### Comparing propagation models
+### 1. Comparing propagation models
 
 There are three common propagation models: Fraunhofer, Fresnel, and angular spectrum.
 Depending on the propagation distance and aperture size, one model may be more appropriate than the other.
@@ -104,7 +71,7 @@ The following scripts demonstrate the differences between the models, with compa
 - `python examples/prop/bl_angular_spectrum.py`: show benefit of band-limiting angular spectrum method.
 - `python examples/prop/square_ap_gif.py`: compare various propagation approaches while varying the distance and store as GIF.
 
-#### Off-axis, rescaling, and tiling
+### 2. Off-axis, rescaling, and tiling
 
 The (above) standard propagation model have a fixed input and output sampling. The following scripts demonstrate how to simulate off-axis propagation and rescaling. 
 This can provide a lot of flexbility in simulation. The relevant papers are [Shifted Fresnel diffraction for computational holography] (https://opg.optica.org/oe/fulltext.cfm?uri=oe-15-9-5631&id=132698), [Shifted angular spectrum method for off-axis numerical propagation](https://opg.optica.org/oe/fulltext.cfm?uri=oe-18-17-18453&id=205150), and [Band-limited angular spectrum numerical propagation method with selective scaling of observation window size and sample number](https://opg.optica.org/josaa/fulltext.cfm?uri=josaa-29-11-2415&id=244612).
@@ -113,22 +80,25 @@ This can provide a lot of flexbility in simulation. The relevant papers are [Shi
 - `python examples/prop/rescale.py`: comparing off-axis, rescaled simulation with Fresnel and angular spectrum. Shifted Fresnel is not valid in near-field and when rescaling such that output is larger than input (e.g. with `python examples/prop/rescale.py -cn zoom_out`).
 - `python examples/prop/tiling.py`: apply rectangular tiling as in [Shifted Fresnel](https://opg.optica.org/oe/fulltext.cfm?uri=oe-15-9-5631&id=132698) for increasing the resolution at the target/propagated plane. Show how Fresnel is not valid for near-field, while angular spectrum is.
 
-#### Polychromatic simulation
+### 3. Polychromatic simulation
 
 The above scripts demonstrate monochromatic simulation. The following example shows how to simulate polychromatic light, i.e. with multiple wavelengths.
 
-- `python examples/prop/square_ap_gif.py`: polychromatic simulation of square aperture while varying the distance. Acceleration with GPU (via PyTorch) and parallelization (via joblib) is demonstrated.
+- `python examples/prop/square_ap_poly.py`: polychromatic simulation of square aperture.
+- `python examples/prop/square_ap_poly_gif.py`: polychromatic simulation of square aperture while varying the distance. Acceleration with GPU (via PyTorch) and parallelization (via joblib) is demonstrated.
 
 
-#### PyTorch support (TODO)
+### 4. PyTorch support (TODO)
+
+Giving input as pytorch
 
 
-#### Spatial light modulator (TODO)
+### 5. Spatial light modulator (TODO)
 
 - `adafruit_slm.py`: polychromatric simulation of amplitude SLM with or without deadspace.
 - `adafruit_slm_mono_pytorch.py`: monochromatric simulation of amplitude SLM with PyTorch support.
 
-#### Holography (TODO)
+### 6. Holography (TODO)
 
 The above GIF showing the propagation of a holography pattern was generated with the following command:
 
@@ -146,7 +116,6 @@ python examples/holography.py --target data/lcav.png --invert --f_lens 0.5 --z_s
 
 
 
-
 Scripts and functions to simulate free-space optical propagation. 
 
 In the `examples` folder:
@@ -154,13 +123,39 @@ In the `examples` folder:
 
 
 
-- `circ_ap_lab.py`: simulate circular aperture with command-line defined arguments. Default is our lab setup.
-- `rect_ap_lab.py`: simulate rectangular aperture with command-line defined arguments. Default is our lab setup.
-- `single_slit_lab.py` (WIP): simulate single-slit with command-line defined arguments. Default is our lab setup.
 
-NB: `click` is required for some scripts for parsing command-line arguments.
+## Code formatting
 
-  
+Through Git pre-hooks.
+```
+# inside virtual environment
+(waveprop) pip install pre-commit
+(waveprop) pip install black
+
+# Install git hooks
+(waveprop) pre-commit install
+# pre-commit installed at .git/hooks/pre-commit
+```
+
+## New release and upload to PyPi
+
+From master branch of original repo, and using the appropriate value for `X.X.X`:
+
+```
+# Create tag and upload
+git tag -a vX.X.X -m "Description."
+git push origin vX.X.X
+
+# Change version number in setup.py
+python setup.py sdist
+
+# Create package and upload to Pypi
+twine upload dist/waveprop-X.X.X.tar.gz   
+```
+
+You will need a username and password for uploading to PyPi.
+
+Finally, [on GitHub](https://github.com/ebezzam/waveprop/tags) set the new tag as the latest release by pressing the three dots to the right and selecting "Edit release, at top right selecting "Edit tag", and then publishing it!
 
 
 ## Literature and references
