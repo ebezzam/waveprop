@@ -1,8 +1,7 @@
 """
 A square aperture is propagated with the band-limited angular spectrum method.
 
-A polychromatic source is used, and the resulting intensity is computed and
-stored in a GIF file as the propagation distance increases.
+A polychromatic source is used, and the resulting RGB image is saved.
 
 
 """
@@ -18,7 +17,6 @@ from waveprop.rs import angular_spectrum
 import matplotlib.pyplot as plt
 from waveprop.color import ColorSystem
 import torch
-import multiprocessing
 
 
 @hydra.main(version_base=None, config_path="../configs", config_name="square_ap_poly")
@@ -54,7 +52,7 @@ def square_ap_poly(config):
     """ discretize aperture """
     x, y = sample_points(N=N, delta=d1)
     u_in = torch.tensor(rect2d(x, y, diam).astype(np.float32), device=device)
-    plot2d(x, y, u_in, title="Aperture")
+    plot2d(x, y, u_in.cpu(), title="Aperture")
     plt.savefig("1_input.png")
 
     """ loop over distance """
@@ -92,7 +90,6 @@ def square_ap_poly(config):
     filenames.append(filename)
     plt.savefig(filename)
     frames.append(imageio.imread(filename))
-
 
     print(f"Total computation time: {time.time() - start_time_tot}")
 

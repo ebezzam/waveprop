@@ -1,7 +1,6 @@
-from turtle import pu
 import numpy as np
 import torch
-from waveprop.util import crop, rect2d, sample_points
+from waveprop.util import crop, sample_points
 import torch.nn.functional as F
 import cv2
 import os
@@ -23,22 +22,12 @@ def get_slm_mask(
     requires_grad=True,
 ):
     """
+    Prepare the array data for an SLM mask.
 
     Parameters
     ----------
-    slm_vals
-    slm_config
-    sensor_config
-    crop_fact
-    target_dim
-    deadspace
-    pattern_shift
-    pytorch
-    device
-    dtype
-
-    Returns
-    -------
+    slm_vals : str or np.ndarray or torch.Tensor
+        If str, then the path to a .npy file containing the SLM mask values.
 
     """
     if dtype is None:
@@ -400,7 +389,7 @@ def get_slm_mask_separable(
 
     # mask pattern checks
     if isinstance(slm_vals, str) and os.path.isfile(slm_vals):
-        raise NotImplemented
+        raise NotImplementedError
 
     else:
         """use provided values"""

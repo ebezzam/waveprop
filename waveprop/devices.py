@@ -7,6 +7,7 @@ import numpy as np
 
 class SLMOptions(Enum):
     ADAFRUIT = "adafruit"
+    HOLOEYE_LC2012 = "holoeye_lc2012"
 
     @staticmethod
     def values():
@@ -19,6 +20,7 @@ class SLMParam:
     SHAPE = "shape"
     SIZE = "size"
     DEADSPACE = "deadspace"
+    FILL_FACTOR = "fill_factor"  # % of SLM pixel that is active
     PITCH = "pitch"
     # (optional) color filter on top of SLM, each filter should be length-3 tuple for (R, G, B)
     COLOR_FILTER = "color_filter"
@@ -41,20 +43,49 @@ slm_dict = {
         #         [(1, 0, 0), (0, 1, 0)], [(0, 1, 0), (0, 0, 1)]
         #     ]
         # ),
-    }
+    },
+    # https://holoeye.com/lc-2012-spatial-light-modulator/
+    SLMOptions.HOLOEYE_LC2012.value: {
+        SLMParam.NAME: SLMOptions.HOLOEYE_LC2012,
+        SLMParam.PITCH: np.array([36e-6, 36e-6]),
+        SLMParam.FILL_FACTOR: np.array([0.58, 0.58]),
+        SLMParam.SHAPE: np.array([768, 1024]),
+        SLMParam.SIZE: np.array([27.6e-3, 36.9e-3]),
+    },
 }
 
-# derived parameters
+# derive parameters from others
 for _key in slm_dict:
     _config = slm_dict[_key]
+
+    # deadspace
     if SLMParam.DEADSPACE not in _config.keys():
-        _config[SLMParam.DEADSPACE] = (
-            _config[SLMParam.SIZE] - _config[SLMParam.CELL_SIZE] * _config[SLMParam.SHAPE]
-        ) / (_config[SLMParam.SHAPE] - 1)
+        if SLMParam.CELL_SIZE in _config.keys():
+            _config[SLMParam.DEADSPACE] = (
+                _config[SLMParam.SIZE] - _config[SLMParam.CELL_SIZE] * _config[SLMParam.SHAPE]
+            ) / (_config[SLMParam.SHAPE] - 1)
+        elif SLMParam.FILL_FACTOR in _config.keys() and SLMParam.PITCH in _config.keys():
+            _config[SLMParam.DEADSPACE] = _config[SLMParam.PITCH] * (
+                1 - _config[SLMParam.FILL_FACTOR]
+            )
+        else:
+            raise ValueError("Cannot derive deadspace from given parameters.")
+
+    # cell size
+    if SLMParam.CELL_SIZE not in _config.keys():
+        _config[SLMParam.CELL_SIZE] = _config[SLMParam.PITCH] * _config[SLMParam.FILL_FACTOR]
+
+    # pitch
     if SLMParam.PITCH not in _config.keys():
         _config[SLMParam.PITCH] = _config[SLMParam.CELL_SIZE] + _config[SLMParam.DEADSPACE]
+
+    # fill factor
+    if SLMParam.FILL_FACTOR not in _config.keys():
+        _config[SLMParam.FILL_FACTOR] = 1 - _config[SLMParam.DEADSPACE] / _config[SLMParam.PITCH]
+
     if SLMParam.COLOR_FILTER in _config.keys():
         assert len(_config[SLMParam.COLOR_FILTER].shape) == 3
+
 
 """ Camera sensors """
 

@@ -58,7 +58,7 @@ Depending on the propagation distance and aperture size, one model may be more a
 The following propagation models are implemented. All make use of the FFT unless otherwise noted. The implementations for Fraunhofer and Fresnel were heavily inspired from the MATLAB scripts for [this book](https://www.spiedigitallibrary.org/ebooks/PM/Numerical-Simulation-of-Optical-Wave-Propagation-with-Examples-in-MATLAB/eISBN-9780819483270/10.1117/3.866274?SSO=1).
 
 - Fraunhofer: best suited for far-field as it approximates wave-fronts as planar.
-- Fresnel (one-step, two-step, multi-step, angular spectrum): more suitable for near-field as it approximates wave-fronts as parabolic.
+- Fresnel (one-step, two-step, multi-step, convolutional): more suitable for near-field as it approximates wave-fronts as parabolic.
 - Angular spectrum, with evanescent waves and option to [bandlimit](https://opg.optica.org/oe/fulltext.cfm?uri=oe-17-22-19662&id=186848). Best suited for very near-field, as it maintains spherical wave-fronts, but more prone to aliasing (which is what bandlimiting can help with).
 - Direct integration (no FFT), "brute force" numerical integration, which can be *very* slow, as it directly computes the Rayleigh-Sommerfeld (convolution) integral.
 - FFT-DI, linearizes circular convolution of direction integration in the DFT domain as described [here](https://www.osapublishing.org/ao/fulltext.cfm?uri=ao-45-6-1102&id=87971). Uses three FFTs, and only practical for small output windows.
@@ -94,14 +94,21 @@ The above scripts demonstrate monochromatic simulation. The following example sh
 - `python examples/prop/square_ap_poly_gif.py`: polychromatic simulation of square aperture while varying the distance. Acceleration with GPU (via PyTorch) and parallelization (via joblib) is demonstrated.
 
 
-### 4. PyTorch support (TODO)
+### 4. PyTorch support
 
-Giving input as pytorch
+The following propagation models have PyTorch support, meaning a PyTorch tensor can be used as input and output. This is useful for GPU acceleration and for backpropagation:
+
+- Fresnel (convolutional)
+- Angular spectrum method
+
+`python examples/prop/square_ap_poly.py use_cuda=True` will run the polychromatic simulation with GPU acceleration.
 
 
 ### 5. Spatial light modulator (TODO)
 
-- `adafruit_slm.py`: polychromatric simulation of amplitude SLM with or without deadspace.
+- `python examples/slm/coherent_amplitude.py`: coherent illumination (single wavelength) simulation of amplitude SLM.
+
+- polychromatric simulation of amplitude SLM with or without deadspace.
 - `adafruit_slm_mono_pytorch.py`: monochromatric simulation of amplitude SLM with PyTorch support.
 
 ### 6. Holography (TODO)
