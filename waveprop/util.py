@@ -195,7 +195,7 @@ def jinc(x):
 
 
 def plot2d(
-    x_vals, y_vals, Z, pcolormesh=False, colorbar=True, title="", ax=None, gamma=None, **kwargs
+    x_vals, y_vals, Z, pcolormesh=False, colorbar=True, title="", ax=None, gamma=None, cmap="gray", **kwargs
 ):
     """
     pcolormesh doesn't keep square aspect ratio for each pixel
@@ -221,7 +221,7 @@ def plot2d(
         ax = fig.add_subplot(1, 1, 1)
     X, Y = np.meshgrid(x_vals, y_vals)
     if pcolormesh:
-        cp = ax.pcolormesh(X, Y, Z, cmap=cm.gray)
+        cp = ax.pcolormesh(X, Y, Z, **kwargs)
     else:
         if len(Z.shape) == 2 or Z.shape[0] == 1:
             cp = ax.imshow(
@@ -232,8 +232,9 @@ def plot2d(
                     y_vals.min(),
                     y_vals.max(),
                 ],
-                cmap="gray",
                 origin="lower",
+                cmap=cmap,
+                **kwargs
             )
         else:
             cp = ax.imshow(
@@ -244,6 +245,7 @@ def plot2d(
                     y_vals.min(),
                     y_vals.max(),
                 ],
+                cmap=cmap,
                 origin="lower",
             )
     fig = plt.gcf()
@@ -253,6 +255,59 @@ def plot2d(
     ax.set_ylabel("y [m]")
     ax.set_title(title)
     return ax
+
+
+def plot_field(
+    obj, figsize=(12, 5), unwrap=False, ri=False, title=None, save=None, complex=True, colorbar=True
+):
+    """
+    ri : bool
+        Whether to plot (real, imaginary) or (amplitude, phase).
+    complex : bool
+        Whether to plot complex field or not.
+    """
+    if complex:
+        fig, ax = plt.subplots(nrows=1, ncols=2, figsize=figsize)
+        if ri:
+            cp = ax[0].imshow(np.real(obj), cmap="gray")
+            ax[0].set_title("Real")
+        else:
+            cp = ax[0].imshow(np.abs(obj), cmap="gray")
+            ax[0].set_title("Amplitude")
+        if colorbar:
+            fig.colorbar(cp, ax=ax[0], orientation="vertical")
+
+        if ri:
+            cp = ax[1].imshow(np.imag(obj), cmap="gray")
+            ax[1].set_title("Imaginary")
+        else:
+            phase = np.angle(obj)
+            if unwrap:
+                phase = np.unwrap(phase, axis=0)
+                phase = np.unwrap(phase, axis=1)
+            cp = ax[1].imshow(phase, cmap="gray")
+            ax[1].set_title("Phase")
+
+        if colorbar:
+            fig.colorbar(cp, ax=ax[1], orientation="vertical")
+        if title is not None:
+            fig.suptitle(title)
+
+    else:
+        fig, ax = plt.subplots(nrows=1, ncols=1)
+        cp = ax.imshow(obj, cmap="gray")
+        if colorbar:
+            fig.colorbar(cp, ax=ax, orientation="vertical")
+        if title is not None:
+            ax.set_title(title)
+
+    # tight
+    fig.tight_layout()
+
+    if save is not None:
+        plt.savefig(save, bbox_inches="tight")
+
+    return fig, ax
 
 
 def bounding_box(ax, start, stop, period, shift=None, pcolormesh=True, **kwargs):
