@@ -195,7 +195,16 @@ def jinc(x):
 
 
 def plot2d(
-    x_vals, y_vals, Z, pcolormesh=False, colorbar=True, title="", ax=None, gamma=None, cmap="gray", **kwargs
+    x_vals,
+    y_vals,
+    Z,
+    pcolormesh=False,
+    colorbar=True,
+    title="",
+    ax=None,
+    gamma=None,
+    cmap="gray",
+    **kwargs
 ):
     """
     pcolormesh doesn't keep square aspect ratio for each pixel
@@ -254,11 +263,21 @@ def plot2d(
     ax.set_xlabel("x [m]")
     ax.set_ylabel("y [m]")
     ax.set_title(title)
-    return ax
+    return fig, ax
 
 
 def plot_field(
-    obj, figsize=(12, 5), unwrap=False, ri=False, title=None, save=None, complex=True, colorbar=True
+    obj,
+    figsize=(12, 5),
+    unwrap=False,
+    ri=False,
+    title=None,
+    save=None,
+    complex=True,
+    colorbar=True,
+    x_vals=None,
+    y_vals=None,
+    **kwargs
 ):
     """
     ri : bool
@@ -266,26 +285,43 @@ def plot_field(
     complex : bool
         Whether to plot complex field or not.
     """
+    if x_vals is not None or y_vals is not None:
+        assert x_vals is not None
+        assert y_vals is not None
+
+        x_vals = x_vals.squeeze()
+        y_vals = y_vals.squeeze()
+
+        X, Y = np.meshgrid(x_vals, y_vals)
+        extent = [
+            x_vals.min(),
+            x_vals.max(),
+            y_vals.min(),
+            y_vals.max(),
+        ]
+    else:
+        extent = None
+
     if complex:
         fig, ax = plt.subplots(nrows=1, ncols=2, figsize=figsize)
         if ri:
-            cp = ax[0].imshow(np.real(obj), cmap="gray")
+            cp = ax[0].imshow(np.real(obj), cmap="gray", extent=extent, **kwargs)
             ax[0].set_title("Real")
         else:
-            cp = ax[0].imshow(np.abs(obj), cmap="gray")
+            cp = ax[0].imshow(np.abs(obj), cmap="gray", extent=extent, **kwargs)
             ax[0].set_title("Amplitude")
         if colorbar:
             fig.colorbar(cp, ax=ax[0], orientation="vertical")
 
         if ri:
-            cp = ax[1].imshow(np.imag(obj), cmap="gray")
+            cp = ax[1].imshow(np.imag(obj), cmap="gray", extent=extent, **kwargs)
             ax[1].set_title("Imaginary")
         else:
             phase = np.angle(obj)
             if unwrap:
                 phase = np.unwrap(phase, axis=0)
                 phase = np.unwrap(phase, axis=1)
-            cp = ax[1].imshow(phase, cmap="gray")
+            cp = ax[1].imshow(phase, cmap="gray", extent=extent, **kwargs)
             ax[1].set_title("Phase")
 
         if colorbar:
@@ -293,13 +329,22 @@ def plot_field(
         if title is not None:
             fig.suptitle(title)
 
+        if x_vals is not None:
+            ax[0].set_xlabel("x [m]")
+            ax[0].set_ylabel("y [m]")
+            ax[1].set_xlabel("x [m]")
+            ax[1].set_ylabel("y [m]")
+
     else:
         fig, ax = plt.subplots(nrows=1, ncols=1)
-        cp = ax.imshow(obj, cmap="gray")
+        cp = ax.imshow(obj, cmap="gray", extent=extent, **kwargs)
         if colorbar:
             fig.colorbar(cp, ax=ax, orientation="vertical")
         if title is not None:
             ax.set_title(title)
+        if x_vals is not None:
+            ax.set_xlabel("x [m]")
+            ax.set_ylabel("y [m]")
 
     # tight
     fig.tight_layout()

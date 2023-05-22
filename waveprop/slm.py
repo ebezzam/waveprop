@@ -1,10 +1,313 @@
 import numpy as np
 import torch
-from waveprop.util import crop, sample_points
 import torch.nn.functional as F
 import cv2
 import os
-from waveprop.devices import SLMOptions, SLMParam, SensorParam
+import matplotlib.pyplot as plt
+from waveprop.devices import SLMOptions, SLMParam, SensorParam, slm_dict
+from waveprop.util import sample_points, rect2d, plot_field, crop, plot2d
+from waveprop.rs import angular_spectrum
+
+
+class SLM:
+    """
+    TODO
+    - set aperture, e.g. different from rect
+    - pytorch support
+    - based on color filter, propagate multi-wavelength
+
+    """
+
+    def __init__(
+        self,
+        shape,
+        size,
+        phase,
+        pitch=None,
+        cell_size=None,
+        fill_factor=None,
+        color_filter=None,
+        deadspace=None,
+        **kwargs,
+    ):
+
+        assert len(shape) == 2
+        assert len(size) == 2
+        assert isinstance(phase, bool)
+
+        self.shape = np.array(shape)
+        self.size = np.array(size)
+        self.phase = phase
+
+        # pitch (inter-pixel spacing)
+        if pitch is None:
+            pitch = self.size / self.shape
+        else:
+            if isinstance(pitch, float):
+                pitch = [pitch, pitch]
+            assert len(pitch) == 2
+        self.pitch = np.array(pitch)
+
+        # cell size and deadspace = pitch
+        if cell_size is None:
+            if fill_factor is not None:
+
+                assert fill_factor > 0 and fill_factor <= 1
+
+                cell_area = np.prod(self.pitch) * fill_factor
+                ratio = self.pitch[0] / self.pitch[1]
+                w = np.sqrt(cell_area / ratio)
+                cell_size = np.array([cell_area / w, w])
+                deadspace = self.pitch - cell_size
+
+            else:
+
+                # not enough info to determine difference
+                cell_size = pitch
+                deadspace = [0, 0]
+                fill_factor = 1
+        else:
+            assert len(cell_size) == 2
+
+            cell_size = np.array(cell_size)
+            deadspace = (self.size - cell_size * self.shape) / (self.shape - 1)
+            fill_factor = np.prod(cell_size) / np.prod(cell_size + deadspace)
+
+        self.cell_size = np.array(cell_size)
+        self.deadspace = np.array(deadspace)
+        self.fill_factor = fill_factor
+
+        assert np.allclose(self.cell_size + self.deadspace, self.pitch, atol=1e-5)
+
+        # modeling parameters
+        # assert 0 < percent <= 1, "Percent must be between 0 and 100"
+        self.percent = 1
+        self.side_percent = np.sqrt(self.percent)
+        self.model_deadspace = False
+        self.deadspace_fft = False
+        self.oversampling = 1
+        self.set_modeling(**kwargs)
+
+        # if color filter in front of SLM
+        self.color_filter = color_filter
+        if color_filter is not None:
+
+            self.n_color_filter = np.prod(color_filter.shape[:2])
+
+            if self.model_deadspace:
+
+                self.cf = get_color_filter(
+                    slm_dim=self.shape,
+                    color_filter=color_filter,
+                    shift=0,
+                    flat=True,
+                )
+
+            else:
+
+                self.cf = get_color_filter(
+                    slm_dim=self.shape,
+                    color_filter=color_filter,
+                    shift=0,
+                    flat=False,
+                )
+        else:
+            self.n_color_filter = 1
+
+            if self.model_deadspace:
+
+                self.cf = None
+
+            else:
+
+                raise NotImplementedError
+                # self.cf = np.ones((self.n_color_filter, len(y), x.shape[1]), dtype=np.float32)
+
+    @classmethod
+    def from_string(cls, slm_name, **kwargs):
+        assert slm_name in SLMOptions.values()
+        return cls(**slm_dict[slm_name], **kwargs)
+
+    def print(self):
+        print("Resolution [px] : ", self.shape)
+        print("Size [m] : ", self.size)
+        print("Pitch [m] : ", self.pitch)
+        print("Fill factor [%] : ", self.fill_factor * 100)
+        print("Cell size [m] : ", self.cell_size)
+        print("Deadspace [m] : ", self.deadspace)
+
+    def set_modeling(
+        self,
+        percent=None,
+        sensor_size=None,
+        sensor_crop=1,
+        model_deadspace=None,
+        deadspace_fft=None,
+        oversampling=None,
+        **kwargs,
+    ):
+
+        if percent is not None:
+
+            assert 0 < percent <= 1, "Percent must be between 0 and 100"
+            self.side_percent = np.sqrt(percent)
+            self.percent = percent
+            # self.shape = np.round(self.shape * self.side_percent).astype(int)
+            self.shape = np.floor(self.shape * self.side_percent).astype(int)
+
+        elif sensor_size is not None:
+
+            # TODO : difference between shape and active pixels (e.g. when cropping)
+
+            assert np.alltrue(sensor_size <= self.size)
+            assert 0 < sensor_crop <= 1
+
+            section_resolution = (sensor_size * sensor_crop + self.deadspace) / self.pitch
+            # self.shape = np.round(section_resolution).astype(int)
+            self.shape = np.floor(section_resolution).astype(int)
+
+        # TODO: remove deadspace? or use side_percent
+        self.size = self.shape * self.pitch
+
+        if model_deadspace is not None:
+            self.model_deadspace = model_deadspace
+
+        if deadspace_fft is not None:
+            self.deadspace_fft = deadspace_fft
+
+        if oversampling is not None:
+            self.oversampling = oversampling
+
+    def plot_propagation(self, **kwargs):
+
+        u_out, x_vals, y_vals = self.propagate(**kwargs)
+        title = f"SLM {self.percent*100}%,  propagated {kwargs['dz']}"
+        if self.model_deadspace:
+            title += ", deadspace modeled"
+        if self.deadspace_fft:
+            title += " with FFT"
+        return plot_field(u_out, x_vals=x_vals, y_vals=y_vals, title=title)
+
+    def propagate(self, vals, wv, dz, prop_func=None):
+
+        if prop_func is None:
+            prop_func = angular_spectrum
+
+        if self.deadspace_fft:
+
+            # check values and return as amplitude or phase weights
+            weights, _ = self.get_mask(vals, deadspace=False)
+            weights_flat = weights.flatten()[::-1]
+            centers = get_centers(
+                slm_dim=self.shape,
+                pixel_pitch=self.pitch,
+            )
+
+            # sample points for mask
+            N = np.round(self.shape * self.oversampling).astype(int)
+            d1 = self.size / N
+            x1, y1 = sample_points(N=N, delta=d1)
+            u_in_cent = rect2d(x1, y1, self.cell_size)
+
+            # propagate by shifting in FFT domain
+            u_out, x2, y2 = prop_func(
+                u_in=u_in_cent, wv=wv, d1=d1, dz=dz, in_shift=centers, weights=weights_flat
+            )
+
+        else:
+
+            mask, d1 = self.get_mask(vals=vals)
+
+            if self.n_color_filter > 1:
+                raise NotImplementedError
+            else:
+                u_out, x2, y2 = prop_func(
+                    u_in=mask[0],
+                    wv=wv,
+                    d1=d1,
+                    dz=dz,
+                )
+
+        return u_out, x2, y2
+
+    def plot_mask(self, **kwargs):
+
+        mask, d1 = self.get_mask(**kwargs)
+        x_vals, y_vals = sample_points(N=mask.shape[1:], delta=d1)
+        title = f"SLM function {self.percent*100}%, deadspace={self.model_deadspace}"
+
+        if self.n_color_filter == 1:
+
+            return plot_field(mask[0], x_vals=x_vals, y_vals=y_vals, title=title)
+        else:
+
+            fig, ax = plt.subplots(1, 1, figsize=(10, 10))
+            plot2d(x_vals, y_vals, mask, ax=ax, colorbar=False, title=title)
+            return fig, ax
+
+    def get_mask(self, vals, deadspace=None, **kwargs):
+
+        if deadspace is None:
+            deadspace = self.model_deadspace
+
+        # check resolution
+        assert (vals.shape == self.shape).all()
+
+        # phase or amplitude mask
+        if self.phase:
+            assert 0 <= vals.all() <= 2 * np.pi
+            mask = np.exp(1j * vals)
+
+        else:
+            assert 0 <= vals.all() <= 1
+            mask = vals
+
+        # build mask if deadspace modeling required
+        if deadspace:
+
+            mask_vals_flat = mask.flatten()[::-1]
+            shape = np.ceil(self.shape * self.oversampling).astype(int)
+            mask = np.zeros(np.insert(shape, 0, self.n_color_filter), dtype=mask_vals_flat.dtype)
+
+            # get centers
+            centers = get_centers(
+                slm_dim=self.shape,
+                pixel_pitch=self.pitch,
+            )
+
+            # discretization
+            d1 = self.size / shape
+            _height_pixel, _width_pixel = np.round(self.cell_size / d1).astype(int)
+
+            for i, _center in enumerate(centers):
+                _center_pixel = (_center / d1 + shape / 2).astype(int)
+                _center_top_left_pixel = (
+                    _center_pixel[0] - np.floor(_height_pixel / 2).astype(int),
+                    _center_pixel[1] - np.floor(_width_pixel / 2).astype(int),
+                    # _center_pixel[1] + 1 - np.floor(_width_pixel / 2).astype(int),
+                )
+
+                # TODO : set aperture of cell
+                if self.cf is not None:
+                    _rect = np.tile(
+                        self.cf[i][:, np.newaxis, np.newaxis], (1, _height_pixel, _width_pixel)
+                    )
+                else:
+                    _rect = np.ones((1, _height_pixel, _width_pixel))
+
+                mask[
+                    :,
+                    _center_top_left_pixel[0] : _center_top_left_pixel[0] + _height_pixel,
+                    _center_top_left_pixel[1] : _center_top_left_pixel[1] + _width_pixel,
+                ] = (
+                    _rect * mask_vals_flat[i]
+                )
+
+        else:
+
+            d1 = self.pitch
+
+        return mask, d1
 
 
 def get_slm_mask(

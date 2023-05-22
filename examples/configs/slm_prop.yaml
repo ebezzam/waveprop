@@ -1,18 +1,16 @@
-# python examples/slm/plot.py
+# python examples/slm/single_wavelength.py
 hydra:
   job:
     chdir: True    # change to output folder
 
-
-# slm: "holoeye_lc2012"
-# percent: 0.001   # percent of SLM to plot
-# oversampling: 20
-
-slm: "adafruit"
-percent: 0.01
+seed: 0
+slm: "holoeye_lc2012"
+wv: 532e-9
+dz: 4e-3
 oversampling: 20
-
-
+percent: 0.01   # percent of SLM to plot
+deadspace: True
+deadspace_fft: False
 
 plot:
   gamma: 2.2

@@ -1,7 +1,7 @@
 """
 Useful to visualize deadspace of SLM.
 
-TODO : utility to print out SLM parameters
+TODO : change to using SLM class
 """
 
 import matplotlib.pyplot as plt
@@ -10,7 +10,7 @@ import os
 import numpy as np
 import hydra
 from waveprop.devices import SLMOptions, slm_dict, SLMParam
-from waveprop.slm import get_centers, get_color_filter
+from waveprop.slm import get_centers, get_color_filter, SLM
 from waveprop.util import sample_points, plot2d
 
 
@@ -18,6 +18,28 @@ from waveprop.util import sample_points, plot2d
 def plot(config):
 
     matplotlib.rc("font", **config.plot.font)
+
+    # load SLM
+    percent = config.percent
+    oversampling = config.oversampling
+    slm = SLM.from_string(
+        config.slm, percent=percent, model_deadspace=True, oversampling=oversampling
+    )
+    slm.print()
+
+    # all-ones
+    if slm.phase:
+        slm_vals = np.ones(slm.shape) * 0
+    else:
+        slm_vals = np.ones(slm.shape)
+
+    # plot mask
+    fig, _ = slm.plot_mask(vals=slm_vals)
+    fig.savefig("slm_{}.png".format(config.slm), dpi=config.plot.dpi)
+
+    print(f"\nSaved figures to {os.getcwd()}")
+
+    raise ValueError
 
     slm = config.slm
     oversampling = config.oversampling
@@ -47,7 +69,9 @@ def plot(config):
     n_pixels = centers.shape[0]
     print("Number of pixels plotted : {}".format(n_pixels))
     print("Total number of pixels : {}".format(np.prod(slm_config[SLMParam.SHAPE])))
-    print("Percentage of pixels [%] : {}".format(100 * n_pixels / np.prod(slm_config[SLMParam.SHAPE])))
+    print(
+        "Percentage of pixels [%] : {}".format(100 * n_pixels / np.prod(slm_config[SLMParam.SHAPE]))
+    )
 
     sim_size = (slm_config[SLMParam.SHAPE] * oversampling).astype(int)
     print("Simulation size [px] : {}".format(sim_size))
@@ -87,13 +111,12 @@ def plot(config):
             _rect = np.tile(cf[i][:, np.newaxis, np.newaxis], (1, _height_pixel, _width_pixel))
         else:
             _rect = np.ones((1, _height_pixel, _width_pixel))
-        
+
         mask[
             :,
             _center_top_left_pixel[0] : _center_top_left_pixel[0] + _height_pixel,
             _center_top_left_pixel[1] : _center_top_left_pixel[1] + _width_pixel,
         ] = _rect
-
 
     # plot SLM
     print("Simulated mask shape : ", mask.shape)
@@ -106,6 +129,7 @@ def plot(config):
     fig.savefig("slm_{}.png".format(slm), dpi=config.plot.dpi)
 
     print(f"\nSaved figures to {os.getcwd()}")
+
 
 if __name__ == "__main__":
     plot()
