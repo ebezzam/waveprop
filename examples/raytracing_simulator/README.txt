@@ -3,7 +3,7 @@ https://github.com/LCAV/LenslessPiCam
 
 It is provided as is and likely needs some adaptation to be runnable as it depends on the aforementioned project.
 
-Is is also quite unefficient and serves more as a demonstration purpose, especially since the raytracing is done entierely in python, and that most of the methods in simulator/utils can certainly be replaced by their respective equivalents from common librairies such as opencv or similar.
+Is is also quite unefficient and serves more as a demonstration purpose, especially since the raytracing is done entirely in python, and that most of the methods in simulator/utils can certainly be replaced by their respective equivalents from common libraries such as opencv or similar.
 
 If you look for a more efficient code, please check this other branch of the repository, proposing a solution based on the excellent mitsuba:
 https://github.com/Julien-Sahli/waveprop/tree/mitsuba
