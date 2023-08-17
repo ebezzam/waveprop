@@ -163,8 +163,8 @@ class FarFieldSimulator(object):
                 image_plane = add_shot_noise(image_plane, snr_db=self.snr_db)
 
             # 5) Quantize as on sensor
-            image_plane /= image_plane.max()
-            image_plane *= self.max_val
+            image_plane = image_plane / image_plane.max()
+            image_plane = image_plane * self.max_val
             if torch.is_tensor(image_plane):
                 image_plane = image_plane.to(self.output_dtype)
             else:
