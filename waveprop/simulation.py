@@ -44,7 +44,7 @@ class FarFieldSimulator(object):
         """
         Parameters
         ----------
-        psf : np.ndarray, optional.
+        psf : np.ndarray or torch.Tensor, optional.
             Point spread function. If not provided, return image at object plane.
         object_height : float or (float, float)
             Height of object in meters. Or range of values to randomly sample from.
@@ -85,19 +85,8 @@ class FarFieldSimulator(object):
 
         # for convolution
         if psf is not None:
-            self.conv_dim = np.array([psf.shape[_ax] for _ax in self.axes])
-            self.fft_shape = 2 * np.array(self.conv_dim) - 1
-            if torch.is_tensor(psf):
-                self.conv = RealFFTConvolve2D(psf, device=device_conv)
-            else:
-                self.H = np.fft.rfft2(psf, s=self.fft_shape, axes=self.axes)
-                # -- for removing padding
-                self.y_pad_edge = int(
-                    (self.fft_shape[self.axes[0]] - self.conv_dim[self.axes[0]]) / 2
-                )
-                self.x_pad_edge = int(
-                    (self.fft_shape[self.axes[1]] - self.conv_dim[self.axes[1]]) / 2
-                )
+            self.device_conv = device_conv
+            self.set_psf(psf)
 
             # at sensor
             self.output_dim = output_dim
@@ -111,6 +100,31 @@ class FarFieldSimulator(object):
             self.fft_shape = None
             assert output_dim is not None
             self.conv_dim = np.array(output_dim)
+
+    def set_psf(self, psf):
+        """
+        Set PSF of simulator.
+
+        Parameters
+        ----------
+        psf : np.ndarray or torch.Tensor
+            Point spread function.
+        """
+
+        self.psf = psf
+        self.conv_dim = np.array([psf.shape[_ax] for _ax in self.axes])
+        self.fft_shape = 2 * np.array(self.conv_dim) - 1
+        if torch.is_tensor(psf):
+            self.conv = RealFFTConvolve2D(psf, device=self.device_conv)
+        else:
+            self.H = np.fft.rfft2(psf, s=self.fft_shape, axes=self.axes)
+            # -- for removing padding
+            self.y_pad_edge = int(
+                (self.fft_shape[self.axes[0]] - self.conv_dim[self.axes[0]]) / 2
+            )
+            self.x_pad_edge = int(
+                (self.fft_shape[self.axes[1]] - self.conv_dim[self.axes[1]]) / 2
+            )
 
     def propagate(self, obj, return_object_plane=False):
         """
