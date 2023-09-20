@@ -39,6 +39,7 @@ class FarFieldSimulator(object):
         random_shift=False,
         is_torch=False,
         quantize=True,
+        return_float=True,
         **kwargs
     ):
         """
@@ -65,14 +66,21 @@ class FarFieldSimulator(object):
         is_torch : bool, optional
             Whether to use pytorch, by default False.
         quantize : bool, optional
-            Whether to quantize image, by default True.
+            Whether to quantize image to 8 bit, by default True.
+        return_float : bool, optional
+            Whether to return float or uint8 image, by default True. If quantizing, 
+            image levels will be quantized but in float format.
         """
         if is_torch:
             self.axes = (-2, -1)
-            output_dtype = torch.uint8
+            output_dtype = torch.float32
+            if quantize and not return_float:
+                output_dtype = torch.uint8
         else:
             self.axes = (0, 1)
-            output_dtype = np.uint8
+            output_dtype = np.float32
+            if quantize and not return_float:
+                output_dtype = np.uint8
         self.is_torch = is_torch
 
         # for resizing
@@ -185,9 +193,14 @@ class FarFieldSimulator(object):
                 image_plane = image_plane / image_plane.max()
                 image_plane = image_plane * self.max_val
                 if torch.is_tensor(image_plane):
-                    image_plane = image_plane.to(self.output_dtype)
+                    image_plane = image_plane.to(torch.uint8)
                 else:
-                    image_plane = image_plane.astype(self.output_dtype)
+                    image_plane = image_plane.astype(np.uint8)
+
+            if torch.is_tensor(image_plane):
+                image_plane = image_plane.to(self.output_dtype)
+            else:
+                image_plane = image_plane.astype(self.output_dtype)
 
             if return_object_plane:
                 return image_plane, object_plane
