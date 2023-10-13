@@ -10,7 +10,7 @@ Just profiling the PSF computation!
 
 """
 
-from waveprop.util import rect2d, zero_pad, ft2, sample_points, plot2d
+from waveprop.util import rect2d, zero_pad_2d, ft2, sample_points, plot2d
 from waveprop.slm import get_slm_mask, get_active_pixel_dim
 from waveprop.devices import SLMOptions, slm_dict, SensorOptions, SensorParam, sensor_dict, SLMParam
 import numpy as np
@@ -113,7 +113,7 @@ for pytorch in [True, False]:
             # precompute aperture FT
             x1, y1 = sample_points(N=target_dim, delta=d1)
             u_in_cent = rect2d(x1, y1, slm_config[SLMParam.CELL_SIZE])
-            aperture_pad = zero_pad(u_in_cent)
+            aperture_pad = zero_pad_2d(u_in_cent)
             aperture_ft = ft2(aperture_pad, delta=d1).astype(np.complex64)
             if pytorch:
                 aperture_ft = torch.tensor(aperture_ft, dtype=ctype).to(device)
