@@ -562,7 +562,7 @@ def prepare_object_plane(
     object_dim = tuple((np.round(input_dim * scaling)).astype(int))
 
     if torch.is_tensor(obj):
-        object_plane = resize_torch(obj, size=object_dim)
+        object_plane = resize_torch(obj, size=object_dim, antialias=True)
     else:
         object_plane = resize(obj, shape=object_dim)
 
