@@ -560,6 +560,7 @@ def prepare_object_plane(
     object_height_pix = int(np.round(object_height / scene_dim[1] * sensor_dim[1]))
     scaling = object_height_pix / input_dim[1]
     object_dim = tuple((np.round(input_dim * scaling)).astype(int))
+    object_dim = (int(object_dim[0]), int(object_dim[1]))
 
     if torch.is_tensor(obj):
         object_plane = resize_torch(obj, size=object_dim, antialias=True)
