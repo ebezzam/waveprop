@@ -45,6 +45,8 @@ pytest tests/
 From master branch of original repo, and using the appropriate value for `X.X.X`:
 
 ```
+# Update version in setup.py
+
 # Create tag and upload
 git tag -a vX.X.X -m "Description."
 git push origin vX.X.X
