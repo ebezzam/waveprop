@@ -3,7 +3,7 @@ from scipy import ndimage
 import torch
 
 
-def add_shot_noise(image, snr_db, tol=1e-6):
+def add_shot_noise(image, snr_db, tol=1e-6, return_noise=False):
     """
     Add shot noise to image.
 
@@ -15,6 +15,8 @@ def add_shot_noise(image, snr_db, tol=1e-6):
         Signal-to-noise ratio in dB.
     tol : float, optional
         Tolerance for noise variance, by default 1e-6.
+    return_noise : bool, optional
+        Whether to return noise, by default False.
 
     Returns
     -------
@@ -37,8 +39,10 @@ def add_shot_noise(image, snr_db, tol=1e-6):
     noise_var = np.maximum(ndimage.variance(noise), tol)
     fact = np.sqrt(sig_var / noise_var / (10 ** (snr_db / 10)))
 
-    noise = fact * noise
     if torch.is_tensor(image):
         noise = torch.from_numpy(noise).to(image.device)
 
-    return image + fact * noise
+    if return_noise:
+        return image + fact * noise, noise
+    else:
+        return image + fact * noise
