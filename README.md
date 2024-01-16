@@ -61,7 +61,7 @@ twine upload dist/waveprop-X.X.X.tar.gz
 
 You will need to set up a token for `twine` (see [here](https://pypi.org/help/#apitoken)).
 
-Finally, [on GitHub](https://github.com/ebezzam/waveprop/tags) set the new tag as the latest release by pressing the three dots to the right and selecting "Edit release, at top right selecting "Edit tag", and then publishing it!
+Finally, [on GitHub](https://github.com/ebezzam/waveprop/tags) set the new tag as the latest release by pressing the three dots all the way to the right. Make sure "Set as the latest release" is checked and press "Publish release"!
 
 ## Examples
 
