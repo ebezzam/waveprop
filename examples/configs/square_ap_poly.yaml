@@ -1,0 +1,17 @@
+# python examples/prop/square_ap_poly.py
+defaults:
+  - defaults
+  - _self_
+
+use_cuda: False
+n_jobs: 4
+
+sim:
+  diam: 3e-3  # side length [m]
+  n_wavelength: 20
+  gain: 1e9
+  dz: 1
+  
+plot:
+  gamma: 2.2
+  intensity: False   # plot intensity or amplitude

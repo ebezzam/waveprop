@@ -1,0 +1,16 @@
+# python examples/prop/square_ap_poly_gif.py
+defaults:
+  - defaults
+  - _self_
+
+use_cuda: True
+
+sim:
+  diam: 2e-3  # side length [m]
+  n_wavelength: 20
+  gain: 1e9
+  
+plot:
+  gamma: 2.2
+  intensity: False   # plot intensity or amplitude
+  gif_duration: 0.5

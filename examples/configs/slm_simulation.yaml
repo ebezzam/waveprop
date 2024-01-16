@@ -1,0 +1,27 @@
+hydra:
+  job:
+    chdir: True    # change to output folder
+
+
+
+slm: "holoeye_lc2012"
+sensor: "rpi_hq"
+
+sim:
+  N: 128
+  deadspace: True
+  pyffs: True
+  dz: 5e-3
+  sensor_crop_fraction: 0.5
+  n_wavelength: 100
+  gain: 1e9
+
+plot:
+  gamma: 2.2
+  alpha: 0.7 # opacity of plots
+  dpi: 300 # resolution of plots
+  xlim: [-0.1, 0.1]
+  font:
+    family: "Times New Roman"
+    weight: "normal"
+    size: 20 # fontsize of plots
