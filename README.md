@@ -46,6 +46,7 @@ From master branch of original repo, and using the appropriate value for `X.X.X`
 
 ```
 # Update version in setup.py
+# Commit and push.
 
 # Create tag and upload
 git tag -a vX.X.X -m "Description."
@@ -58,7 +59,7 @@ python setup.py sdist
 twine upload dist/waveprop-X.X.X.tar.gz   
 ```
 
-You will need a username and password for uploading to PyPi.
+You will need to set up a token for `twine` (see [here](https://pypi.org/help/#apitoken)).
 
 Finally, [on GitHub](https://github.com/ebezzam/waveprop/tags) set the new tag as the latest release by pressing the three dots to the right and selecting "Edit release, at top right selecting "Edit tag", and then publishing it!
 
