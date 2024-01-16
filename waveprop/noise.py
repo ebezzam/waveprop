@@ -41,8 +41,9 @@ def add_shot_noise(image, snr_db, tol=1e-6, return_noise=False):
 
     if torch.is_tensor(image):
         noise = torch.from_numpy(noise).to(image.device)
+    noise = fact * noise
 
     if return_noise:
-        return image + fact * noise, noise
+        return image + noise, noise
     else:
-        return image + fact * noise
+        return image + noise
