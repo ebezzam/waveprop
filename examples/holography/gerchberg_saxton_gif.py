@@ -1,10 +1,9 @@
 """
-Apply iterative Fourier Transform algorithm (Gerchberg Saxton) for determining 
-phase pattern.
+Apply iterative Fourier Transform algorithm (Gerchberg Saxton) for determining phase pattern.
 
-Propagate this pattern to see how it converges to target amplitude and then
-diverges. Use multiprocessing and PyTorch for propagation so that it can be 
-parallelized and on GPUs if available.
+Propagate this pattern to see how it converges to target amplitude and then diverges.
+Use multiprocessing and PyTorch for propagation so that it can be parallelized and on
+GPUs if available.
 
 Example usage:
 ```
@@ -17,9 +16,8 @@ python examples/holography.py --target data/lcav.png --invert --n_jobs 15 \
 --sim_size 0.01 --pattern_size 0.003 --f_lens 0.05 --z_step 0.001
 ```
 
-If only interested in the holography pattern at a single distance, e.g. the 
-focal plane, the following command can be run, which will produce a GIF with 
-a single image
+If only interested in the holography pattern at a single distance, e.g. the focal plane,
+the following command can be run, which will produce a GIF with a single image
 ```
 python examples/holography.py --target data/lcav.png --invert \
 --f_lens 0.5 --z_start 0.5 --nz 1

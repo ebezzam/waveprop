@@ -1,0 +1,8 @@
+# python examples/slm/single_wavelength.py -cn slm_prop_deadspace_fft
+defaults:
+  - slm_prop
+  - _self_
+
+percent: 0.001   # percent of SLM to plot
+deadspace: True
+deadspace_fft: True

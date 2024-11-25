@@ -1,0 +1,23 @@
+# python examples/slm/plot.py
+hydra:
+  job:
+    chdir: True    # change to output folder
+
+
+# slm: "holoeye_lc2012"
+# percent: 0.001   # percent of SLM to plot
+# oversampling: 20
+
+slm: "adafruit"
+percent: 0.01
+oversampling: 20
+
+
+
+plot:
+  gamma: 2.2
+  dpi: 300 # resolution of plots
+  font:
+    family: "Times New Roman"
+    weight: "normal"
+    size: 20 # fontsize of plots

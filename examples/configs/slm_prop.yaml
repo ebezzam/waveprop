@@ -1,0 +1,21 @@
+# python examples/slm/single_wavelength.py
+hydra:
+  job:
+    chdir: True    # change to output folder
+
+seed: 0
+slm: "holoeye_lc2012"
+wv: 532e-9
+dz: 4e-3
+oversampling: 20
+percent: 0.01   # percent of SLM to plot
+deadspace: True
+deadspace_fft: False
+
+plot:
+  gamma: 2.2
+  dpi: 300 # resolution of plots
+  font:
+    family: "Times New Roman"
+    weight: "normal"
+    size: 20 # fontsize of plots
