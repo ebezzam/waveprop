@@ -1,9 +1,10 @@
+from turtle import pu
 import numpy as np
 import torch
 from waveprop.pytorch_util import fftconvolve as fftconvolve_torch
 import warnings
 from scipy.signal import fftconvolve
-from waveprop.util import ft2, ift2, sample_points, crop, _get_dtypes, zero_pad
+from waveprop.util import ft, ft2, ift2, sample_points, crop, _get_dtypes, zero_pad_2d, zero_pad
 from pyffs import ffsn, fs_interpn, ffs_shift
 
 
@@ -265,12 +266,9 @@ def angular_spectrum_np(
     #     in_shift = [in_shift, in_shift]
     # assert len(in_shift) == 2
 
-    if pad:
-        # zero pad to simulate linear convolution
-        Ny, Nx = u_in.shape
-        u_in_pad = zero_pad(u_in)
-    else:
-        u_in_pad = u_in
+    # zero pad to simulate linear convolution
+    Ny, Nx = u_in.shape
+    u_in_pad = zero_pad_2d(u_in)
 
     # size of the padded field
     Ny_pad, Nx_pad = u_in_pad.shape
@@ -436,7 +434,6 @@ def angular_spectrum_np(
 
 
 def angular_spectrum(
-    u_in,
     wv,
     d1,
     dz,
@@ -457,7 +454,10 @@ def angular_spectrum(
     H_exp=None,
     U1=None,
     device=None,
-    pad=True,
+    u_in=None,
+    u_in_x=None,
+    u_in_y=None,
+    pad=True
 ):
     """
 
@@ -483,11 +483,24 @@ def angular_spectrum(
     H_exp
     U1
     device
+    u_in_x
+    u_in_y
 
     Returns
     -------
 
     """
+    if u_in_x is not None or u_in_y is not None:
+        # separable
+        separable = True
+        assert u_in_x is not None
+        assert u_in_y is not None
+        assert u_in_x.shape[0] == 1
+        assert u_in_y.shape[1] == 1
+    else:
+        assert u_in is not None
+        separable = False
+
     if isinstance(d1, float) or isinstance(d1, int):
         d1 = [d1, d1]
     assert len(d1) == 2
@@ -506,7 +519,12 @@ def angular_spectrum(
     if d2 is None and N_out is None and pyffs:
         warnings.warn("Defaulting to standard BLAS as no need for pyFFS interpolation.")
         pyffs = False
-    if torch.is_tensor(u_in) or torch.is_tensor(dz):
+    if (
+        torch.is_tensor(u_in)
+        or torch.is_tensor(dz)
+        or torch.is_tensor(u_in_x)
+        or torch.is_tensor(u_in_y)
+    ):
         is_torch = True
     else:
         is_torch = False
@@ -521,23 +539,39 @@ def angular_spectrum(
         assert device is not None, "Set device for PyTorch"
         if torch.is_tensor(u_in):
             u_in = u_in.to(device)
+        if torch.is_tensor(u_in_x):
+            u_in_x = u_in_x.to(device)
+            assert torch.is_tensor(u_in_y)
+        if torch.is_tensor(u_in_y):
+            u_in_y = u_in_y.to(device)
+            assert torch.is_tensor(u_in_x)
         if torch.is_tensor(dz):
             dz = dz.to(device)
         if weights is not None and torch.is_tensor(weights):
             weights = weights.to(device)
+
     if dtype is None:
-        dtype = u_in.dtype
+        if separable:
+            dtype = u_in_x.dtype
+        else:
+            dtype = u_in.dtype
     ctype, ctype_np = _get_dtypes(dtype, is_torch)
 
-    Ny, Nx = u_in.shape
     # pad input to linearize convolution
-    if pad:
-        u_in_pad = zero_pad(u_in)
+    if separable:
+        Ny = u_in_y.shape[0]
+        Nx = u_in_x.shape[1]
+
+        u_in_y_pad = zero_pad(u_in_y, axis=0)
+        u_in_x_pad = zero_pad(u_in_x, axis=1)
+        Ny_pad = u_in_y_pad.shape[0]
+        Nx_pad = u_in_x_pad.shape[1]
     else:
-        u_in_pad = u_in
+        Ny, Nx = u_in.shape
+        u_in_pad = zero_pad_2d(u_in)
+        Ny_pad, Nx_pad = u_in_pad.shape
 
     # size of the padded field
-    Ny_pad, Nx_pad = u_in_pad.shape
     Dy, Dx = (d1[0] * float(Ny_pad), d1[1] * float(Nx_pad))
 
     # frequency coordinates sampling
@@ -547,84 +581,91 @@ def angular_spectrum(
     fY = np.arange(-Ny_pad / 2, Ny_pad / 2)[:, np.newaxis] * dfY
 
     # compute FT of input
-    if U1 is None:
-        if not return_H and not return_H_exp:
-            if pyffs:
-                if is_torch:
-                    raise ValueError("No PyTorch support for pyFFS")
+    if U1 is None and not return_H and not return_H_exp:
+        if pyffs:
 
-                # compute FS coefficients of input
-                # -- reshuffle input for pyFFS
-                T = [Dy, Dx]
-                T_c = [0, 0]
-                N_s = np.array(u_in_pad.shape)
-                N_FS = [ns if ns % 2 else ns // 2 * 2 - 1 for ns in N_s]  # must be odd
-                u_in_pad_reorder = ffs_shift(u_in_pad)
+            assert not separable, "Separable not supported."
 
-                # -- compute coefficients
-                U1 = ffsn(u_in_pad_reorder, T, T_c, N_FS)[: N_FS[0], : N_FS[1]]
-                # TODO
-            # else:
-            #     U1 = ft2(u_in_pad, delta=d1)
-            #     if not torch.is_tensor(U1):
-            #         U1 = U1.astype(ctype_np)
+            if is_torch:
+                raise ValueError("No PyTorch support for pyFFS")
 
-            if in_shift is not None:
-                # input field goes through SLM mask, take into account deadspace
-                # TODO : precompute shift terms? would take a lot of memory...
-                if aperture is None and aperture_ft is None:
-                    # use input field as aperture that we shift
-                    AP = ft2(u_in_pad, delta=d1)
-                else:
-                    # we have separate input field that we need to multiply with mask in time domain
-                    if aperture_ft is None:
-                        assert aperture.shape == u_in.shape
-                        aperture_pad = zero_pad(aperture)
-                        AP = ft2(aperture_pad, delta=d1)
-                    else:
-                        AP = aperture_ft
+            # compute FS coefficients of input
+            # -- reshuffle input for pyFFS
+            T = [Dy, Dx]
+            T_c = [0, 0]
+            N_s = np.array(u_in_pad.shape)
+            N_FS = [ns if ns % 2 else ns // 2 * 2 - 1 for ns in N_s]  # must be odd
+            u_in_pad_reorder = ffs_shift(u_in_pad)
 
+            # -- compute coefficients
+            U1 = ffsn(u_in_pad_reorder, T, T_c, N_FS)[: N_FS[0], : N_FS[1]]
+
+        if in_shift is not None:
+
+            assert not separable, "Separable not supported."
+
+            # input field goes through SLM mask, take into account deadspace
+            # TODO : precompute shift terms? would take a lot of memory...
+            if aperture is None and aperture_ft is None:
+                # use input field as aperture that we shift
+                AP = ft2(u_in_pad, delta=d1)
+            else:
+                # we have separate input field that we need to multiply with mask in time domain
                 if aperture_ft is None:
-                    AP = AP.astype(ctype_np)
-                    if is_torch:
-                        AP = torch.tensor(AP, dtype=ctype).to(device)
+                    assert aperture.shape == u_in.shape
+                    aperture_pad = zero_pad_2d(aperture)
+                    AP = ft2(aperture_pad, delta=d1)
+                else:
+                    AP = aperture_ft
 
-                # TODO: matrix-free, will `index_select` work for differentiation??
+            if aperture_ft is None:
+                AP = AP.astype(ctype_np)
                 if is_torch:
-                    shift_terms = torch.zeros_like(AP)
+                    AP = torch.tensor(AP, dtype=ctype).to(device)
+
+            # TODO: matrix-free, will `index_select` work for differentiation??
+            if is_torch:
+                shift_terms = torch.zeros_like(AP)
+            else:
+                shift_terms = np.zeros_like(AP)
+            for i, shift in enumerate(in_shift):
+                _shift = np.ones(AP.shape, dtype=ctype_np)
+                if shift[0]:
+                    _shift *= np.exp(-1j * 2 * np.pi * fY * shift[0])
+                if shift[1]:
+                    _shift *= np.exp(-1j * 2 * np.pi * fX * shift[1])
+                # if is_torch:
+                #     # TODO will overwriting _shift be a problem for backprop?
+                #     _shift = torch.tensor(_shift.astype(ctype_np), dtype=ctype).to(device)
+
+                if is_torch:
+                    index_tensor = torch.tensor([i], dtype=torch.int, device=device)
+                    shift_terms += torch.tensor(_shift.astype(ctype_np), dtype=ctype).to(
+                        device
+                    ) * torch.index_select(weights, 0, index_tensor)
                 else:
-                    shift_terms = np.zeros_like(AP)
-                for i, shift in enumerate(in_shift):
-                    _shift = np.ones(AP.shape, dtype=ctype_np)
-                    if shift[0]:
-                        _shift *= np.exp(-1j * 2 * np.pi * fY * shift[0])
-                    if shift[1]:
-                        _shift *= np.exp(-1j * 2 * np.pi * fX * shift[1])
-                    # if is_torch:
-                    #     # TODO will overwriting _shift be a problem for backprop?
-                    #     _shift = torch.tensor(_shift.astype(ctype_np), dtype=ctype).to(device)
+                    shift_terms += _shift * weights[i]
 
-                    if is_torch:
-                        index_tensor = torch.tensor([i], dtype=torch.int, device=device)
-                        shift_terms += torch.tensor(_shift.astype(ctype_np), dtype=ctype).to(
-                            device
-                        ) * torch.index_select(weights, 0, index_tensor)
-                    else:
-                        shift_terms += _shift * weights[i]
+            if aperture is None:
+                U1 = AP * shift_terms
+            else:
+                # go back to time domain to multiply with mask
+                # TODO option to do without shifting in freq domain for faster output
+                AP *= shift_terms
+                u_in_masked = u_in_pad * ift2(AP, delta_f=[dfY, dfX])
+                U1 = ft2(u_in_masked, delta=d1)
 
-                if aperture is None:
-                    U1 = AP * shift_terms
-                else:
-                    # go back to time domain to multiply with mask
-                    # TODO option to do without shifting in freq domain for faster output
-                    AP *= shift_terms
-                    u_in_masked = u_in_pad * ift2(AP, delta_f=[dfY, dfX])
-                    U1 = ft2(u_in_masked, delta=d1)
+        else:
 
+            if separable:
+                Uy = ft(u_in_y_pad, delta=d1[0], axis=0)
+                Ux = ft(u_in_x_pad, delta=d1[1], axis=1)
+                U1 = Uy @ Ux
             else:
                 U1 = ft2(u_in_pad, delta=d1)
-                if not torch.is_tensor(U1):
-                    U1 = U1.astype(ctype_np)
+
+            if not torch.is_tensor(U1):
+                U1 = U1.astype(ctype_np)
 
     if return_U1:
         return U1
@@ -632,19 +673,21 @@ def angular_spectrum(
     # compute transfer function
     if H is None:
         H = _form_transfer_function(
-            u_in_pad,
-            d1,
-            wv,
-            dz,
-            out_shift,
-            bandlimit,
-            H_exp,
-            dtype,
-            pyffs,
-            return_H_exp,
-            device,
-            is_torch,
+            d1=d1,
+            wv=wv,
+            dz=dz,
+            out_shift=out_shift,
+            bandlimit=bandlimit,
+            H_exp=H_exp,
+            dtype=dtype,
+            pyffs=pyffs,
+            return_H_exp=return_H_exp,
+            device=device,
+            is_torch=is_torch,
+            Ny_pad=Ny_pad,
+            Nx_pad=Nx_pad,
         )
+
     if return_H_exp:
         return H
     if return_H:
@@ -735,14 +778,15 @@ def angular_spectrum(
 
 
 def _form_transfer_function(
-    u_in_pad,
     d1,
     wv,
     dz,
     out_shift,
+    dtype,
+    Ny_pad,
+    Nx_pad,
     bandlimit=True,
     H_exp=None,
-    dtype=None,
     pyffs=False,
     return_H_exp=False,
     device=None,
@@ -791,11 +835,6 @@ def _form_transfer_function(
     assert len(d1) == 2
     assert len(out_shift) == 2
 
-    if torch.is_tensor(u_in_pad):
-        is_torch = True
-        if device is None:
-            device = u_in_pad.device
-
     if torch.is_tensor(dz):
         is_torch = True
         optimize_z = True
@@ -806,13 +845,9 @@ def _form_transfer_function(
     else:
         optimize_z = False
 
-    if dtype is None:
-        dtype = u_in_pad.dtype
-
     ctype, ctype_np = _get_dtypes(dtype, is_torch)
 
     # size of the padded field
-    Ny_pad, Nx_pad = u_in_pad.shape
     Dy, Dx = (d1[0] * float(Ny_pad), d1[1] * float(Nx_pad))
 
     # frequency coordinates sampling

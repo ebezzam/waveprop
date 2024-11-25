@@ -1,6 +1,6 @@
 import numpy as np
 import cv2
-from numpy.fft import fftshift, fft2, ifftshift, ifft2
+from numpy.fft import fftshift, fft2, ifftshift, ifft2, fft
 import torch
 from scipy.special import j1
 import matplotlib.pyplot as plt
@@ -37,6 +37,18 @@ def ft2(g, delta):
         )
     else:
         res = fftshift(fft2(fftshift(g))) * fact
+        if g.dtype == np.float32 or g.dtype == np.complex64:
+            res = res.astype(np.complex64)
+        return res
+
+
+def ft(g, delta, axis=None):
+    if torch.is_tensor(g):
+        return torch.fft.fftshift(
+            torch.fft.fft(torch.fft.fftshift(g * delta, dim=axis), dim=axis), dim=axis
+        )
+    else:
+        res = fftshift(fft(fftshift(g, axes=axis), axis=axis), axes=axis) * delta
         if g.dtype == np.float32 or g.dtype == np.complex64:
             res = res.astype(np.complex64)
         return res
@@ -216,7 +228,7 @@ def plot2d(x_vals, y_vals, Z, pcolormesh=False, colorbar=True, title="", ax=None
         ax = fig.add_subplot(1, 1, 1)
     X, Y = np.meshgrid(x_vals, y_vals)
     if pcolormesh:
-        cp = ax.pcolormesh(X, Y, Z, cmap=cm.gray)
+        cp = ax.pcolormesh(Y, X, Z, cmap=cm.gray)
     else:
         if len(Z.shape) == 2 or Z.shape[0] == 1:
             cp = ax.imshow(
@@ -423,7 +435,19 @@ def _get_dtypes(dtype, is_torch):
             raise ValueError("Unexpected dtype: ", dtype)
 
 
-def zero_pad(u_in, pad=None):
+def zero_pad(u_in, axis):
+    N = u_in.shape[axis]
+    pad_edge = int(N // 2)
+
+    if torch.is_tensor(u_in):
+        raise ValueError
+    else:
+        pad_width = [(0, 0) for _ in range(len(u_in.shape))]
+        pad_width[axis] = (pad_edge + 1 if N % 2 else pad_edge, pad_edge)
+        return np.pad(u_in, pad_width=pad_width, mode="constant", constant_values=0)
+
+
+def zero_pad_2d(u_in, pad=None):
     Ny, Nx = u_in.shape
     if pad is None:
         y_pad_edge = int(Ny // 2)
@@ -432,6 +456,7 @@ def zero_pad(u_in, pad=None):
         y_pad_edge, x_pad_edge = pad
 
     if torch.is_tensor(u_in):
+        # (left, right, top, bottom))
         pad_width = (
             x_pad_edge + 1 if Nx % 2 else x_pad_edge,
             x_pad_edge,
@@ -440,6 +465,7 @@ def zero_pad(u_in, pad=None):
         )
         return torch.nn.functional.pad(u_in, pad_width, mode="constant", value=0.0)
     else:
+        # ((top, bottom), (left, right))
         pad_width = (
             (y_pad_edge + 1 if Ny % 2 else y_pad_edge, y_pad_edge),
             (x_pad_edge + 1 if Nx % 2 else x_pad_edge, x_pad_edge),
