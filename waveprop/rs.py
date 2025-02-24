@@ -274,7 +274,7 @@ def angular_spectrum_np(
 
     # size of the padded field
     Ny_pad, Nx_pad = u_in_pad.shape
-    Dy, Dx = (d1[0] * float(Ny_pad), d1[1] * float(Nx_pad))
+    Dy, Dx = (d1[0] * float(Ny_pad - 1), d1[1] * float(Nx_pad - 1))
 
     # frequency coordinates sampling
     # dfX = 1.0 / Dx
@@ -828,7 +828,7 @@ def _form_transfer_function(
 
     # size of the padded field
     Ny_pad, Nx_pad = u_in_pad.shape
-    Dy, Dx = (d1[0] * float(Ny_pad), d1[1] * float(Nx_pad))
+    Dy, Dx = (d1[0] * float(Ny_pad - 1), d1[1] * float(Nx_pad - 1))
 
     # frequency coordinates sampling
     # frequency coordinates sampling
