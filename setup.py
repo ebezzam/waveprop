@@ -11,7 +11,7 @@ setuptools.setup(
     description="Functions and scripts to simulate free-space optical wave propagation.",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/ebezzam/waveprop",
+    url="https://github.com/demroz/waveprop",
     # download_url = "https://github.com/ebezzam/waveprop/archive/refs/tags/v0.0.1.tar.gz",
     packages=setuptools.find_packages(),
     classifiers=[
