@@ -102,13 +102,23 @@ def sample_points(N, delta, shift=0, pytorch=False):
     if pytorch:
         delta = torch.tensor(delta)
         shift = torch.tensor(shift)
-        x = torch.arange(-N[1] / 2, N[1] / 2) * delta[1] + shift[1]
+        Dx = (N[1] - 1) * delta[1]
+        Dy = (N[0] - 1) * delta[0]
+        x = (torch.arange(0,N[1]) * delta[1] - Dx/2) * delta[1] + shift[1]
+        y = (torch.arange(0,N[0]) * delta[0] - Dy/2) * delta[0] + shift[0]
         x = torch.unsqueeze(x, 0)
-        y = torch.arange(-N[0] / 2, N[0] / 2) * delta[0] + shift[0]
         y = torch.unsqueeze(y, 1)
+        #x = torch.arange(-N[1] / 2, N[1] / 2) * delta[1] + shift[1]
+        #x = torch.unsqueeze(x, 0)
+        #y = torch.arange(-N[0] / 2, N[0] / 2) * delta[0] + shift[0]
+        #y = torch.unsqueeze(y, 1)
     else:
-        x = np.arange(-N[1] / 2, N[1] / 2)[np.newaxis, :] * delta[1] + shift[1]
-        y = np.arange(-N[0] / 2, N[0] / 2)[:, np.newaxis] * delta[0] + shift[0]
+        Dx = (N[1] - 1) * delta[1]
+        Dy = (N[0] - 1) * delta[0]
+        # x = np.arange(-N[1] / 2, N[1] / 2)[np.newaxis, :] * delta[1] + shift[1]
+        # y = np.arange(-N[0] / 2, N[0] / 2)[:, np.newaxis] * delta[0] + shift[0]
+        x = (np.arange(0,N[1]) * delta[1] - Dx/2) + shift[1]
+        y = (np.arange(0,N[0]) * delta[0] - Dy/2) + shift[0]
     return x, y
 
 
@@ -432,18 +442,23 @@ def zero_pad(u_in, pad=None):
         y_pad_edge, x_pad_edge = pad
 
     if torch.is_tensor(u_in):
-        pad_width = (
-            x_pad_edge + 1 if Nx % 2 else x_pad_edge,
-            x_pad_edge,
-            y_pad_edge + 1 if Ny % 2 else y_pad_edge,
-            y_pad_edge,
-        )
+        # pad_width = (
+        #     x_pad_edge + 1 if Nx % 2 else x_pad_edge,
+        #     x_pad_edge,
+        #     y_pad_edge + 1 if Ny % 2 else y_pad_edge,
+        #     y_pad_edge,
+        # )
+        pad_width = (y_pad_edge, y_pad_edge,
+                     x_pad_edge, x_pad_edge)
+        
         return torch.nn.functional.pad(u_in, pad_width, mode="constant", value=0.0)
     else:
-        pad_width = (
-            (y_pad_edge + 1 if Ny % 2 else y_pad_edge, y_pad_edge),
-            (x_pad_edge + 1 if Nx % 2 else x_pad_edge, x_pad_edge),
-        )
+        # pad_width = (
+        #    (y_pad_edge + 1 if Ny % 2 else y_pad_edge, y_pad_edge),
+        #    (x_pad_edge + 1 if Nx % 2 else x_pad_edge, x_pad_edge),
+        #)
+        pad_width = ((y_pad_edge, y_pad_edge),
+                     (x_pad_edge, x_pad_edge))
         return np.pad(u_in, pad_width=pad_width, mode="constant", constant_values=0)
 
 
