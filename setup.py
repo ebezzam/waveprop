@@ -18,7 +18,7 @@ setuptools.setup(
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",
     ],
-    python_requires=">=3.7",
+    python_requires=">=3.11",
     install_requires=[
         "torch>=1.12.1",
         "torchvision>=0.13.1",
