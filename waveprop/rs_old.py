@@ -274,24 +274,13 @@ def angular_spectrum_np(
 
     # size of the padded field
     Ny_pad, Nx_pad = u_in_pad.shape
-    Dy, Dx = (d1[0] * float(Ny_pad - 1), d1[1] * float(Nx_pad - 1))
+    Dy, Dx = (d1[0] * float(Ny_pad), d1[1] * float(Nx_pad))
 
     # frequency coordinates sampling
-    # dfX = 1.0 / Dx
-    # dfY = 1.0 / Dy
-    # fX = np.arange(-Nx_pad / 2 + 0.5, Nx_pad / 2)[np.newaxis, :] * dfX
-    # fY = np.arange(-Ny_pad / 2 + 0.5, Ny_pad / 2)[:, np.newaxis] * dfY
-    
-    # frequency coordinates sampling
-    # dfX = 1.0 / Dx
-    # dfY = 1.0 / Dy
-    # fX_old = np.arange(-Nx_pad / 2 , Nx_pad / 2)[np.newaxis, :] * dfX
-    # fY_old = np.arange(-Ny_pad / 2 , Ny_pad / 2)[np.newaxis, :] * dfY
-    fX = np.fft.fftshift(np.fft.fftfreq(Nx_pad, d = d1[0]))[np.newaxis,:]
-    fY = np.fft.fftshift(np.fft.fftfreq(Ny_pad, d = d1[1]))[:,np.newaxis] 
-    dfX = fX[0,1] - fX[0,0]
-    dfY = fY[1,0] - fY[0,0]
-    
+    dfX = 1.0 / Dx
+    dfY = 1.0 / Dy
+    fX = np.arange(-Nx_pad / 2, Nx_pad / 2)[np.newaxis, :] * dfX
+    fY = np.arange(-Ny_pad / 2, Ny_pad / 2)[:, np.newaxis] * dfY
     fsq = fX**2 + fY**2
 
     # compute transfer function (Saleh / Sepand's notes but w/o abs val on distance)
@@ -549,18 +538,14 @@ def angular_spectrum(
 
     # size of the padded field
     Ny_pad, Nx_pad = u_in_pad.shape
-    Dy, Dx = (d1[0] * float(Ny_pad - 1 ), d1[1] * float(Nx_pad - 1))
+    Dy, Dx = (d1[0] * float(Ny_pad), d1[1] * float(Nx_pad))
 
     # frequency coordinates sampling
-    # dfX = 1.0 / Dx
-    # dfY = 1.0 / Dy
-    # fX_old = np.arange(-Nx_pad / 2 , Nx_pad / 2)[np.newaxis, :] * dfX
-    # fY_old = np.arange(-Ny_pad / 2 , Ny_pad / 2)[np.newaxis, :] * dfY
-    fX = np.fft.fftshift(np.fft.fftfreq(Nx_pad, d = d1[0]))[np.newaxis,:]
-    fY = np.fft.fftshift(np.fft.fftfreq(Ny_pad, d = d1[1]))[:,np.newaxis] 
-    dfX = fX[0,1] - fX[0,0]
-    dfY = fY[1,0] - fY[0,0]
-    
+    dfX = 1.0 / Dx
+    dfY = 1.0 / Dy
+    fX = np.arange(-Nx_pad / 2, Nx_pad / 2)[np.newaxis, :] * dfX
+    fY = np.arange(-Ny_pad / 2, Ny_pad / 2)[:, np.newaxis] * dfY
+
     # compute FT of input
     if U1 is None:
         if not return_H and not return_H_exp:
@@ -828,18 +813,13 @@ def _form_transfer_function(
 
     # size of the padded field
     Ny_pad, Nx_pad = u_in_pad.shape
-    Dy, Dx = (d1[0] * float(Ny_pad - 1), d1[1] * float(Nx_pad - 1))
+    Dy, Dx = (d1[0] * float(Ny_pad), d1[1] * float(Nx_pad))
 
     # frequency coordinates sampling
-    # frequency coordinates sampling
-    # dfX = 1.0 / Dx
-    # dfY = 1.0 / Dy
-    # fX_old = np.arange(-Nx_pad / 2 , Nx_pad / 2)[np.newaxis, :] * dfX
-    # fY_old = np.arange(-Ny_pad / 2 , Ny_pad / 2)[np.newaxis, :] * dfY
-    fX = np.fft.fftshift(np.fft.fftfreq(Nx_pad, d = d1[0]))[np.newaxis,:]
-    fY = np.fft.fftshift(np.fft.fftfreq(Ny_pad, d = d1[1]))[:,np.newaxis] 
-    dfX = fX[0,1] - fX[0,0]
-    dfY = fY[1,0] - fY[0,0]
+    dfX = 1.0 / Dx
+    dfY = 1.0 / Dy
+    fX = np.arange(-Nx_pad / 2, Nx_pad / 2)[np.newaxis, :] * dfX
+    fY = np.arange(-Ny_pad / 2, Ny_pad / 2)[:, np.newaxis] * dfY
 
     # - compute transfer function
     fsq = fX**2 + fY**2

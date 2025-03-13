@@ -40,8 +40,6 @@ class FarFieldSimulator(object):
         is_torch=False,
         quantize=True,
         return_float=True,
-        vertical_shift=None,
-        horizontal_shift=None,
         **kwargs
     ):
         """
@@ -92,8 +90,6 @@ class FarFieldSimulator(object):
         self.sensor = sensor_dict[sensor]
         self.random_shift = random_shift
         self.quantize = quantize
-        self.vertical_shift = vertical_shift
-        self.horizontal_shift = horizontal_shift
 
         # for convolution
         if psf is not None:
@@ -168,17 +164,6 @@ class FarFieldSimulator(object):
             sensor_dim=self.conv_dim,
             random_shift=self.random_shift,
         )
-
-        if self.is_torch:
-            if self.vertical_shift is not None:
-                object_plane = torch.roll(object_plane, self.vertical_shift, dims=1)
-            if self.horizontal_shift is not None:
-                object_plane = torch.roll(object_plane, self.horizontal_shift, dims=2)
-        else:
-            if self.vertical_shift is not None:
-                object_plane = np.roll(object_plane, self.vertical_shift, axis=1)
-            if self.horizontal_shift is not None:
-                object_plane = np.roll(object_plane, self.horizontal_shift, axis=2)
 
         if self.fft_shape is not None:
             # 2) Convolve with PSF
