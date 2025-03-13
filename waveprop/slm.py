@@ -220,7 +220,7 @@ def get_active_pixel_dim(
     overlapping_mask_dim = (
         sensor_config[SensorParam.SIZE] + slm_config[SLMParam.DEADSPACE]
     ) / slm_config[SLMParam.PITCH]
-    overlapping_mask_dim = overlapping_mask_dim.astype(np.int)
+    overlapping_mask_dim = overlapping_mask_dim.astype(np.int32)
     overlapping_mask_size = overlapping_mask_dim * slm_config[SLMParam.PITCH]
 
     # crop out a region
@@ -231,7 +231,7 @@ def get_active_pixel_dim(
     n_active_slm_pixels = (cropped_mask_size + slm_config[SLMParam.DEADSPACE]) / slm_config[
         SLMParam.PITCH
     ]
-    n_active_slm_pixels = n_active_slm_pixels.astype(np.int)
+    n_active_slm_pixels = n_active_slm_pixels.astype(np.int32)
 
     return overlapping_mask_size, overlapping_mask_dim, n_active_slm_pixels
 

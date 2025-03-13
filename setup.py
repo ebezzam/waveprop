@@ -12,13 +12,12 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/ebezzam/waveprop",
-    # download_url = "https://github.com/ebezzam/waveprop/archive/refs/tags/v0.0.1.tar.gz",
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",
     ],
-    python_requires=">=3.7",
+    python_requires=">=3.9",
     install_requires=[
         "torch>=1.12.1",
         "torchvision>=0.13.1",
