@@ -32,12 +32,8 @@ def fresnel_one_step(u_in, wv, d1, dz):
 
     # coordinates
     x1, y1 = sample_points(N=[Ny, Nx], delta=d1)
-    x1 = x1[np.newaxis, :]
-    y1 = y1[:, np.newaxis]
 
     x2, y2 = sample_points(N=[Ny, Nx], delta=[1 / Ny / d1[0] * wv * dz, 1 / Nx / d1[1] * wv * dz])
-    x2 = x2[np.newaxis, :]
-    y2 = y2[:, np.newaxis]
 
 
     # evaluate integral
@@ -153,8 +149,6 @@ def fresnel_conv(u_in, wv, d1, dz, device=None, dtype=None, d2=None, pad=True):
 
     # source coordinates
     x1, y1 = sample_points(N=N, delta=d1)
-    x1 = x1[np.newaxis, :]
-    y1 = y1[:, np.newaxis]
 
 
     r1sq = x1**2 + y1**2
@@ -168,8 +162,6 @@ def fresnel_conv(u_in, wv, d1, dz, device=None, dtype=None, d2=None, pad=True):
 
     # observation plane
     x2, y2 = sample_points(N=N, delta=d2)
-    x2 = x2[np.newaxis, :]
-    y2 = y2[:, np.newaxis]
 
     r2sq = x2**2 + y2**2
 
