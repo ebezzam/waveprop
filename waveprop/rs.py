@@ -3,7 +3,7 @@ import torch
 from waveprop.pytorch_util import fftconvolve as fftconvolve_torch
 import warnings
 from scipy.signal import fftconvolve
-from waveprop.util import ft2, ift2, sample_points, crop, _get_dtypes, zero_pad
+from waveprop.util import ft2, ift2, sample_points, sample_freq, crop, _get_dtypes, zero_pad
 from pyffs import ffsn, fs_interpn, ffs_shift
 
 
@@ -277,20 +277,8 @@ def angular_spectrum_np(
     Dy, Dx = (d1[0] * float(Ny_pad - 1), d1[1] * float(Nx_pad - 1))
 
     # frequency coordinates sampling
-    # dfX = 1.0 / Dx
-    # dfY = 1.0 / Dy
-    # fX = np.arange(-Nx_pad / 2 + 0.5, Nx_pad / 2)[np.newaxis, :] * dfX
-    # fY = np.arange(-Ny_pad / 2 + 0.5, Ny_pad / 2)[:, np.newaxis] * dfY
-    
-    # frequency coordinates sampling
-    # dfX = 1.0 / Dx
-    # dfY = 1.0 / Dy
-    # fX_old = np.arange(-Nx_pad / 2 , Nx_pad / 2)[np.newaxis, :] * dfX
-    # fY_old = np.arange(-Ny_pad / 2 , Ny_pad / 2)[np.newaxis, :] * dfY
-    fX = np.fft.fftshift(np.fft.fftfreq(Nx_pad, d = d1[0]))[np.newaxis,:]
-    fY = np.fft.fftshift(np.fft.fftfreq(Ny_pad, d = d1[1]))[:,np.newaxis] 
-    dfX = fX[0,1] - fX[0,0]
-    dfY = fY[1,0] - fY[0,0]
+    fX, fY, df = sample_freq([Nx_pad, Ny_pad], d1, pytorch=is_torch)
+    dfX, dfY = df
     
     fsq = fX**2 + fY**2
 
@@ -552,14 +540,8 @@ def angular_spectrum(
     Dy, Dx = (d1[0] * float(Ny_pad - 1 ), d1[1] * float(Nx_pad - 1))
 
     # frequency coordinates sampling
-    # dfX = 1.0 / Dx
-    # dfY = 1.0 / Dy
-    # fX_old = np.arange(-Nx_pad / 2 , Nx_pad / 2)[np.newaxis, :] * dfX
-    # fY_old = np.arange(-Ny_pad / 2 , Ny_pad / 2)[np.newaxis, :] * dfY
-    fX = np.fft.fftshift(np.fft.fftfreq(Nx_pad, d = d1[0]))[np.newaxis,:]
-    fY = np.fft.fftshift(np.fft.fftfreq(Ny_pad, d = d1[1]))[:,np.newaxis] 
-    dfX = fX[0,1] - fX[0,0]
-    dfY = fY[1,0] - fY[0,0]
+    fX, fY, df = sample_freq([Nx_pad, Ny_pad], d1, pytorch=is_torch)
+    dfX, dfY = df
     
     # compute FT of input
     if U1 is None:
@@ -836,10 +818,8 @@ def _form_transfer_function(
     # dfY = 1.0 / Dy
     # fX_old = np.arange(-Nx_pad / 2 , Nx_pad / 2)[np.newaxis, :] * dfX
     # fY_old = np.arange(-Ny_pad / 2 , Ny_pad / 2)[np.newaxis, :] * dfY
-    fX = np.fft.fftshift(np.fft.fftfreq(Nx_pad, d = d1[0]))[np.newaxis,:]
-    fY = np.fft.fftshift(np.fft.fftfreq(Ny_pad, d = d1[1]))[:,np.newaxis] 
-    dfX = fX[0,1] - fX[0,0]
-    dfY = fY[1,0] - fY[0,0]
+    fX, fY, df = sample_freq([Nx_pad, Ny_pad], d1, pytorch=is_torch)
+    dfX, dfY = df
 
     # - compute transfer function
     fsq = fX**2 + fY**2
