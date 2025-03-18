@@ -108,19 +108,36 @@ def sample_points(N, delta, shift=0, pytorch=False):
         y = (torch.arange(0,N[0]) * delta[0] - Dy/2) * delta[0] + shift[0]
         x = torch.unsqueeze(x, 0)
         y = torch.unsqueeze(y, 1)
-        #x = torch.arange(-N[1] / 2, N[1] / 2) * delta[1] + shift[1]
-        #x = torch.unsqueeze(x, 0)
-        #y = torch.arange(-N[0] / 2, N[0] / 2) * delta[0] + shift[0]
-        #y = torch.unsqueeze(y, 1)
     else:
         Dx = (N[1] - 1) * delta[1]
         Dy = (N[0] - 1) * delta[0]
-        # x = np.arange(-N[1] / 2, N[1] / 2)[np.newaxis, :] * delta[1] + shift[1]
-        # y = np.arange(-N[0] / 2, N[0] / 2)[:, np.newaxis] * delta[0] + shift[0]
         x = (np.arange(0,N[1]) * delta[1] - Dx/2) + shift[1]
         y = (np.arange(0,N[0]) * delta[0] - Dy/2) + shift[0]
     return x, y
 
+def sample_freq(N, delta, pytorch=False):
+    """
+    Return frequency sampling.
+    
+    Parameters
+    ----------
+    N : int or list
+        Number of sample points
+    delta: int or float or list
+        Sampling period along x-dimension and (optionally) y-dimension [m].
+    """
+    if isinstance(N, int):
+       N = [N, N]
+    assert len(N) == 2
+    if isinstance(delta, float) or isinstance(delta, int):
+       delta = [delta, delta]
+    fX = np.fft.fftshift(np.fft.fftfreq(N[0], delta[0]))[np.newaxis, :]
+    fY = np.fft.fftshift(np.fft.fftfreq(N[1], delta[1]))[:, np.newaxis]
+    df = np.array([fX[1] - fX[0], fY[1] - fY[0]])
+    if pytorch:
+       fX = torch.tensor(fX)
+       fY = torch.tensor(fY)
+    return fX, fY, df
 
 def circ(x, y, diam):
     """

@@ -1,5 +1,5 @@
 import numpy as np
-from waveprop.util import sample_points, ft2, jinc
+from waveprop.util import sample_points, sample_freq, ft2, jinc
 
 
 def fraunhofer(u_in, wv, d1, dz):
@@ -30,10 +30,7 @@ def fraunhofer(u_in, wv, d1, dz):
     k = 2 * np.pi / wv
 
     # frequencies of propagating waves
-    # fx, fy = # sample_points(N=[Ny, Nx], delta=[(1 / Ny / d1[0]), (1 / Nx / d1[1])])
-    fx = np.fft.fftshift(np.fft.fftfreq(Nx, d = d1[0]))[np.newaxis,:]
-    fy = np.fft.fftshift(np.fft.fftfreq(Ny, d = d1[1]))[:,np.newaxis]
-
+    fx,fy,df = sample_freq([Nx,Ny], d1)
     # output coordinates
     x2 = fx * wv * dz
     y2 = fy * wv * dz
