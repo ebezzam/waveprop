@@ -113,6 +113,8 @@ def sample_points(N, delta, shift=0, pytorch=False):
         Dy = (N[0] - 1) * delta[0]
         x = (np.arange(0,N[1]) * delta[1] - Dx/2) + shift[1]
         y = (np.arange(0,N[0]) * delta[0] - Dy/2) + shift[0]
+        x = x[np.newaxis, :]
+        y = y[:, np.newaxis]
     return x, y
 sample_points(10,1)
 def sample_freq(N, delta, pytorch=False):

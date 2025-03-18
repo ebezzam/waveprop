@@ -277,7 +277,7 @@ def angular_spectrum_np(
     Dy, Dx = (d1[0] * float(Ny_pad - 1), d1[1] * float(Nx_pad - 1))
 
     # frequency coordinates sampling
-    fX, fY, df = sample_freq([Nx_pad, Ny_pad], d1, pytorch=is_torch)
+    fX, fY, df = sample_freq([Nx_pad, Ny_pad], d1)
     dfX, dfY = df
     
     fsq = fX**2 + fY**2
@@ -540,7 +540,7 @@ def angular_spectrum(
     Dy, Dx = (d1[0] * float(Ny_pad - 1 ), d1[1] * float(Nx_pad - 1))
 
     # frequency coordinates sampling
-    fX, fY, df = sample_freq([Nx_pad, Ny_pad], d1, pytorch=is_torch)
+    fX, fY, df = sample_freq([Nx_pad, Ny_pad], d1)
     dfX, dfY = df
     
     # compute FT of input
@@ -813,12 +813,7 @@ def _form_transfer_function(
     Dy, Dx = (d1[0] * float(Ny_pad - 1), d1[1] * float(Nx_pad - 1))
 
     # frequency coordinates sampling
-    # frequency coordinates sampling
-    # dfX = 1.0 / Dx
-    # dfY = 1.0 / Dy
-    # fX_old = np.arange(-Nx_pad / 2 , Nx_pad / 2)[np.newaxis, :] * dfX
-    # fY_old = np.arange(-Ny_pad / 2 , Ny_pad / 2)[np.newaxis, :] * dfY
-    fX, fY, df = sample_freq([Nx_pad, Ny_pad], d1, pytorch=is_torch)
+    fX, fY, df = sample_freq([Nx_pad, Ny_pad], d1)
     dfX, dfY = df
 
     # - compute transfer function
