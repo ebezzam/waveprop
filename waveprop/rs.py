@@ -911,7 +911,7 @@ def _bandpass(H, fX, fY, Sx, Sy, x0, y0, z0, wv):
     :param y0:
     :return:
     """
-    du = 1 / (2 * Sx)
+    du = 1 / (Sx)
     u_limit_p = ((x0 + 1 / (2 * du)) ** (-2) * z0**2 + 1) ** (-1 / 2) / wv
     u_limit_n = ((x0 - 1 / (2 * du)) ** (-2) * z0**2 + 1) ** (-1 / 2) / wv
     if Sx < x0:
@@ -924,7 +924,7 @@ def _bandpass(H, fX, fY, Sx, Sy, x0, y0, z0, wv):
         u0 = (u_limit_p - u_limit_n) / 2
         u_width = u_limit_p + u_limit_n
 
-    dv = 1 / (2 * Sy)
+    dv = 1 / (Sy)
     v_limit_p = ((y0 + 1 / (2 * dv)) ** (-2) * z0**2 + 1) ** (-1 / 2) / wv
     v_limit_n = ((y0 - 1 / (2 * dv)) ** (-2) * z0**2 + 1) ** (-1 / 2) / wv
     if Sy < y0:

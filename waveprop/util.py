@@ -461,21 +461,11 @@ def zero_pad(u_in, pad=None):
         y_pad_edge, x_pad_edge = pad
 
     if torch.is_tensor(u_in):
-        # pad_width = (
-        #     x_pad_edge + 1 if Nx % 2 else x_pad_edge,
-        #     x_pad_edge,
-        #     y_pad_edge + 1 if Ny % 2 else y_pad_edge,
-        #     y_pad_edge,
-        # )
         pad_width = (y_pad_edge, y_pad_edge,
                      x_pad_edge, x_pad_edge)
         
         return torch.nn.functional.pad(u_in, pad_width, mode="constant", value=0.0)
     else:
-        # pad_width = (
-        #    (y_pad_edge + 1 if Ny % 2 else y_pad_edge, y_pad_edge),
-        #    (x_pad_edge + 1 if Nx % 2 else x_pad_edge, x_pad_edge),
-        #)
         pad_width = ((y_pad_edge, y_pad_edge),
                      (x_pad_edge, x_pad_edge))
         return np.pad(u_in, pad_width=pad_width, mode="constant", constant_values=0)
