@@ -24,7 +24,7 @@ pip install waveprop
 To develop locally and/or play with examples, we recommend the following steps:
 ```sh
 # create virtual environment
-conda create -n waveprop python=3.9
+conda create -n waveprop_py11 python=3.11
 conda activate waveprop
 
 # install

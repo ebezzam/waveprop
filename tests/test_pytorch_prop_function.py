@@ -4,7 +4,6 @@ from waveprop.pytorch_util import compute_numpy_error
 from waveprop.util import rect2d, sample_points, plot2d
 from waveprop.rs import angular_spectrum_np, angular_spectrum
 from pprint import pprint
-import matplotlib.pyplot as plt
 
 
 # constants
@@ -12,6 +11,12 @@ N = 512  # number of grid points per size
 L = 1e-2  # total size of grid
 wv = 635e-9  # wavelength (red light)
 verbose = False
+
+# check if cuda available
+if torch.cuda.is_available():
+    DEVICES = ["cpu", "cuda"]
+else:
+    DEVICES = ["cpu"]
 
 
 def _test_angular_spectrum(
@@ -218,7 +223,7 @@ def test_blas_no_shift_no_rescale():
 
     for dtype in [torch.float32, torch.float64]:
 
-        for device in ["cpu", "cuda"]:
+        for device in DEVICES:
 
             for dz in [0.1, 0.01]:
 
@@ -250,7 +255,7 @@ def test_blas_off_axis():
 
     for dtype in [torch.float32, torch.float64]:
 
-        for device in ["cpu", "cuda"]:
+        for device in DEVICES:
 
             for dz in [0.1, 0.01]:
 
@@ -283,7 +288,7 @@ def test_blas_rescaling():
 
     for dtype in [torch.float32, torch.float64]:
 
-        for device in ["cpu", "cuda"]:
+        for device in DEVICES:
 
             for dz in [0.1, 0.01]:
 
