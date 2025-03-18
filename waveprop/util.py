@@ -102,15 +102,44 @@ def sample_points(N, delta, shift=0, pytorch=False):
     if pytorch:
         delta = torch.tensor(delta)
         shift = torch.tensor(shift)
-        x = torch.arange(-N[1] / 2, N[1] / 2) * delta[1] + shift[1]
+        Dx = (N[1] - 1) * delta[1]
+        Dy = (N[0] - 1) * delta[0]
+        x = (torch.arange(0,N[1]) * delta[1] - Dx/2) * delta[1] + shift[1]
+        y = (torch.arange(0,N[0]) * delta[0] - Dy/2) * delta[0] + shift[0]
         x = torch.unsqueeze(x, 0)
-        y = torch.arange(-N[0] / 2, N[0] / 2) * delta[0] + shift[0]
         y = torch.unsqueeze(y, 1)
     else:
-        x = np.arange(-N[1] / 2, N[1] / 2)[np.newaxis, :] * delta[1] + shift[1]
-        y = np.arange(-N[0] / 2, N[0] / 2)[:, np.newaxis] * delta[0] + shift[0]
+        Dx = (N[1] - 1) * delta[1]
+        Dy = (N[0] - 1) * delta[0]
+        x = (np.arange(0,N[1]) * delta[1] - Dx/2) + shift[1]
+        y = (np.arange(0,N[0]) * delta[0] - Dy/2) + shift[0]
+        x = x[np.newaxis, :]
+        y = y[:, np.newaxis]
     return x, y
-
+sample_points(10,1)
+def sample_freq(N, delta, pytorch=False):
+    """
+    Return frequency sampling.
+    
+    Parameters
+    ----------
+    N : int or list
+        Number of sample points
+    delta: int or float or list
+        Sampling period along x-dimension and (optionally) y-dimension [m].
+    """
+    if isinstance(N, int):
+       N = [N, N]
+    assert len(N) == 2
+    if isinstance(delta, float) or isinstance(delta, int):
+       delta = [delta, delta]
+    fX = np.fft.fftshift(np.fft.fftfreq(N[0], delta[0]))[np.newaxis, :]
+    fY = np.fft.fftshift(np.fft.fftfreq(N[1], delta[1]))[:, np.newaxis]
+    df = np.array([fX[0,1] - fX[0,0], fY[1,0]- fY[0,0]])
+    if pytorch:
+       fX = torch.tensor(fX)
+       fY = torch.tensor(fY)
+    return fX, fY, df
 
 def circ(x, y, diam):
     """
@@ -432,18 +461,13 @@ def zero_pad(u_in, pad=None):
         y_pad_edge, x_pad_edge = pad
 
     if torch.is_tensor(u_in):
-        pad_width = (
-            x_pad_edge + 1 if Nx % 2 else x_pad_edge,
-            x_pad_edge,
-            y_pad_edge + 1 if Ny % 2 else y_pad_edge,
-            y_pad_edge,
-        )
+        pad_width = (y_pad_edge, y_pad_edge,
+                     x_pad_edge, x_pad_edge)
+        
         return torch.nn.functional.pad(u_in, pad_width, mode="constant", value=0.0)
     else:
-        pad_width = (
-            (y_pad_edge + 1 if Ny % 2 else y_pad_edge, y_pad_edge),
-            (x_pad_edge + 1 if Nx % 2 else x_pad_edge, x_pad_edge),
-        )
+        pad_width = ((y_pad_edge, y_pad_edge),
+                     (x_pad_edge, x_pad_edge))
         return np.pad(u_in, pad_width=pad_width, mode="constant", constant_values=0)
 
 
