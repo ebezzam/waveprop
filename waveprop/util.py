@@ -194,7 +194,18 @@ def jinc(x):
     return y
 
 
-def plot2d(x_vals, y_vals, Z, pcolormesh=False, colorbar=True, title="", ax=None):
+def plot2d(
+    x_vals,
+    y_vals,
+    Z,
+    pcolormesh=False,
+    colorbar=True,
+    title="",
+    ax=None,
+    gamma=None,
+    cmap="gray",
+    **kwargs
+):
     """
     pcolormesh doesn't keep square aspect ratio for each pixel
     """
@@ -211,12 +222,15 @@ def plot2d(x_vals, y_vals, Z, pcolormesh=False, colorbar=True, title="", ax=None
         y_vals -= dy / 2
         y_vals = np.append(y_vals, [y_vals[-1] + dy])
 
+    if gamma is not None:
+        Z = gamma_correction(Z, gamma)
+
     if ax is None:
         fig = plt.figure()
         ax = fig.add_subplot(1, 1, 1)
     X, Y = np.meshgrid(x_vals, y_vals)
     if pcolormesh:
-        cp = ax.pcolormesh(X, Y, Z, cmap=cm.gray)
+        cp = ax.pcolormesh(X, Y, Z, **kwargs)
     else:
         if len(Z.shape) == 2 or Z.shape[0] == 1:
             cp = ax.imshow(
@@ -227,8 +241,9 @@ def plot2d(x_vals, y_vals, Z, pcolormesh=False, colorbar=True, title="", ax=None
                     y_vals.min(),
                     y_vals.max(),
                 ],
-                cmap="gray",
                 origin="lower",
+                cmap=cmap,
+                **kwargs
             )
         else:
             cp = ax.imshow(
@@ -239,6 +254,7 @@ def plot2d(x_vals, y_vals, Z, pcolormesh=False, colorbar=True, title="", ax=None
                     y_vals.min(),
                     y_vals.max(),
                 ],
+                cmap=cmap,
                 origin="lower",
             )
     fig = plt.gcf()
@@ -247,7 +263,96 @@ def plot2d(x_vals, y_vals, Z, pcolormesh=False, colorbar=True, title="", ax=None
     ax.set_xlabel("x [m]")
     ax.set_ylabel("y [m]")
     ax.set_title(title)
-    return ax
+    return fig, ax
+
+
+def plot_field(
+    obj,
+    figsize=(12, 5),
+    unwrap=False,
+    ri=False,
+    title=None,
+    save=None,
+    complex=True,
+    colorbar=True,
+    x_vals=None,
+    y_vals=None,
+    **kwargs
+):
+    """
+    ri : bool
+        Whether to plot (real, imaginary) or (amplitude, phase).
+    complex : bool
+        Whether to plot complex field or not.
+    """
+    if x_vals is not None or y_vals is not None:
+        assert x_vals is not None
+        assert y_vals is not None
+
+        x_vals = x_vals.squeeze()
+        y_vals = y_vals.squeeze()
+
+        X, Y = np.meshgrid(x_vals, y_vals)
+        extent = [
+            x_vals.min(),
+            x_vals.max(),
+            y_vals.min(),
+            y_vals.max(),
+        ]
+    else:
+        extent = None
+
+    if complex:
+        fig, ax = plt.subplots(nrows=1, ncols=2, figsize=figsize)
+        if ri:
+            cp = ax[0].imshow(np.real(obj), cmap="gray", extent=extent, **kwargs)
+            ax[0].set_title("Real")
+        else:
+            cp = ax[0].imshow(np.abs(obj), cmap="gray", extent=extent, **kwargs)
+            ax[0].set_title("Amplitude")
+        if colorbar:
+            fig.colorbar(cp, ax=ax[0], orientation="vertical")
+
+        if ri:
+            cp = ax[1].imshow(np.imag(obj), cmap="gray", extent=extent, **kwargs)
+            ax[1].set_title("Imaginary")
+        else:
+            phase = np.angle(obj)
+            if unwrap:
+                phase = np.unwrap(phase, axis=0)
+                phase = np.unwrap(phase, axis=1)
+            cp = ax[1].imshow(phase, cmap="gray", extent=extent, **kwargs)
+            ax[1].set_title("Phase")
+
+        if colorbar:
+            fig.colorbar(cp, ax=ax[1], orientation="vertical")
+        if title is not None:
+            fig.suptitle(title)
+
+        if x_vals is not None:
+            ax[0].set_xlabel("x [m]")
+            ax[0].set_ylabel("y [m]")
+            ax[1].set_xlabel("x [m]")
+            ax[1].set_ylabel("y [m]")
+
+    else:
+        fig, ax = plt.subplots(nrows=1, ncols=1)
+        cp = ax.imshow(obj, cmap="gray", extent=extent, **kwargs)
+        if colorbar:
+            fig.colorbar(cp, ax=ax, orientation="vertical")
+        if title is not None:
+            ax.set_title(title)
+        if x_vals is not None:
+            ax.set_xlabel("x [m]")
+            ax.set_ylabel("y [m]")
+
+    # tight
+    fig.tight_layout()
+
+    if save is not None:
+        plt.savefig(save, bbox_inches="tight")
+
+    return fig, ax
 
 
 def bounding_box(ax, start, stop, period, shift=None, pcolormesh=True, **kwargs):
@@ -316,8 +421,10 @@ def rect_tiling(N_in, N_out, L, n_tiles, prop_func):
         tiles.append(u_out)
 
     # combine tiles
-    myorder = [0, 3, 6, 1, 4, 7, 2, 5, 8]
-    tiles = [tiles[i] for i in myorder]
+    order = np.arange(n_tiles**2).reshape(n_tiles, n_tiles)
+    order = (order.T).ravel()
+
+    tiles = [tiles[i] for i in order]
     u_out = np.array(tiles).reshape(n_tiles, n_tiles, N_in, N_in)
     u_out = np.transpose(u_out, axes=(0, 2, 1, 3))
     u_out = np.concatenate(u_out, axis=0)
@@ -480,38 +587,6 @@ def resize(img, factor=None, shape=None, interpolation=cv2.INTER_CUBIC, axes=(0,
             return img
         resized = cv2.resize(img, dsize=shape[::-1], interpolation=interpolation)
     return np.clip(resized, min_val, max_val)
-
-
-def realfftconvolve2d(image, kernel):
-    """Convolve image with kernel using real FFT.
-
-    Parameters
-    ----------
-    image : np.ndarray
-        Image.
-    kernel : np.ndarray
-        Kernel.
-
-    Returns
-    -------
-    np.ndarray
-        Convolved image.
-    """
-    image_shape = np.array(image.shape)
-
-    fft_shape = image_shape + np.array(kernel.shape) - 1
-
-    H = np.fft.rfft2(kernel, s=fft_shape)
-    I = np.fft.rfft2(image, s=fft_shape)
-    output = np.fft.irfft2(H * I, s=fft_shape)
-
-    # crop out zero padding
-    y_pad_edge = int((fft_shape[0] - image_shape[0]) / 2)
-    x_pad_edge = int((fft_shape[1] - image_shape[1]) / 2)
-    output = output[
-        y_pad_edge : y_pad_edge + image_shape[0], x_pad_edge : x_pad_edge + image_shape[1]
-    ]
-    return output
 
 
 def prepare_object_plane(

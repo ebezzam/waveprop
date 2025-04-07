@@ -1,0 +1,9 @@
+# python examples/prop/off_axis.py
+defaults:
+  - defaults
+  - _self_
+
+sim:
+  diam: 5e-3  # side length of aperture [m]
+  dz_vals: [0.5, 0.2]  # distance [m]
+  relative_shift: 0.5

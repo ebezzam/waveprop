@@ -1,0 +1,10 @@
+# python examples/prop/rescale.py
+defaults:
+  - defaults
+  - _self_
+
+sim:
+  diam: [1e-3, 2e-3]  # dimensions of rect aperture [m]
+  dz_vals: [0.1, 0.01]  # distance [m]
+  output_scaling: 0.25    # < 1 zoom in
+  relative_shift: 0.1    # from center

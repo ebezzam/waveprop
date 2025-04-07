@@ -3,6 +3,7 @@
 venv*
 waveprop_env*
 data/*
+outputs/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
