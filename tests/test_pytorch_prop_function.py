@@ -4,7 +4,7 @@ from waveprop.pytorch_util import compute_numpy_error
 from waveprop.util import rect2d, sample_points, plot2d
 from waveprop.rs import angular_spectrum_np, angular_spectrum
 from pprint import pprint
-
+from scipy import special
 
 # constants
 N = 512  # number of grid points per size
@@ -17,6 +17,7 @@ if torch.cuda.is_available():
     DEVICES = ["cpu", "cuda"]
 else:
     DEVICES = ["cpu"]
+
 
 
 def _test_angular_spectrum(
@@ -311,6 +312,128 @@ def test_blas_rescaling():
                     assert err_dict["u_out_err_np"] < TOL_optimize_z if optimize_z else TOL
                     assert err_dict["u_out_err_np_np"] == 0
                     assert torch.abs(u_out_torch).dtype == dtype
+
+
+# size even
+N_EVEN = 50
+# size odd
+N_ODD = 51
+
+# lens diameter, in microns
+D = 50
+wl = 0.633 # wavelength in microns
+
+
+lens_radius = D/2
+F = 10*D # focal length
+
+# even/odd grid
+x_even = np.linspace(-D/2, D/2, N_EVEN)
+y_even = x_even
+xx_even, yy_even = np.meshgrid(x_even, y_even)
+rr_even = np.sqrt(xx_even**2 + yy_even**2)
+kAlphaSinTheta_even = 2*np.pi/wl*lens_radius*np.arctan(rr_even/F)
+
+x_odd = np.linspace(-D/2, D/2, N_ODD)
+y_odd = x_odd
+xx_odd, yy_odd = np.meshgrid(x_odd, y_odd)
+rr_odd =np.sqrt(xx_odd **2 + yy_odd**2)
+kAlphaSinTheta_odd = 2*np.pi/wl*lens_radius*np.arctan(rr_odd/F)
+
+# mask so that airy function is circularly symmetric
+mask_even = np.zeros_like(xx_even)
+mask_odd = np.zeros_like(xx_odd)
+mask_even[xx_even ** 2 + yy_even ** 2 <= lens_radius ** 2] = 1
+mask_odd[xx_odd ** 2 + yy_odd ** 2 <= lens_radius ** 2] = 1
+
+# standard lens phase
+phi_even = np.mod(2*np.pi/wl * (np.sqrt(xx_even ** 2 + yy_even ** 2 + F ** 2) - F), 2 * np.pi) * mask_even
+phi_odd = np.mod(2*np.pi/wl * (np.sqrt(xx_odd ** 2 + yy_odd ** 2 + F ** 2) - F), 2 * np.pi) * mask_odd
+
+# nearfield electric field
+e_nearfield_even = np.exp( - 1j * phi_even)
+e_nearfield_odd =  np.exp( - 1j * phi_odd)
+
+
+def bessel_j1_over_r(r):
+    """
+    bessel_j1(r)/r
+        \lim_{r->0} J1(r)/r = 0.5
+
+    Parameters
+    ----------
+    r : float or numpy array
+        radii
+
+    Returns
+    -------
+        J1(r)/r.
+
+    """
+    tol = 1e-7
+    ret = np.zeros_like(r)
+    ret[np.abs(r) < tol] = 0.5
+    ret[np.abs(r) > tol] = special.j1(r[np.abs(r) > tol]) / r[np.abs(r) > tol]
+    return ret
+
+
+airy_even = (2 * bessel_j1_over_r(kAlphaSinTheta_even)) ** 2
+airy_odd = (2 * bessel_j1_over_r(kAlphaSinTheta_odd)) ** 2
+
+def test_asm_even():
+    # near to far field propagation
+    ff = angular_spectrum(e_nearfield_even,
+                          wl, x_even[1] - x_even[0],
+                          F,
+                          bandlimit=False,
+                          pad=False)[0]
+    # farfield intensity
+    ff_I = np.abs( ff ) ** 2
+
+    # airy disk is defined to be equal to 1 at r = 0
+    # since even grids do not hit the r = 0 point, normalize farfield
+    # normalize farfield to max(ff_I) = max(airy_even)
+    ff_I = ff_I / np.max(ff_I) * np.max(airy_even)
+
+    # calcualate error between analytic and
+    # numerical solution. In case of off by 1 error, expect error to be of order ~0.5
+    err = np.max(np.abs(ff_I - airy_even))
+    assert err < 0.05
+
+    # expect maxima in the center
+    ci = int(N_EVEN / 2)
+    ff_max_val = np.max(ff_I)
+    assert np.abs(ff_I[ci,ci] - ff_max_val) < 1e-5
+    assert np.abs(ff_I[ci-1, ci] - ff_max_val) < 1e-5
+    assert np.abs(ff_I[ci, ci-1] - ff_max_val) < 1e-5
+    assert np.abs(ff_I[ci-1, ci-1] - ff_max_val) < 1e-5
+
+
+
+def test_asm_odd():
+    # near to far field propagation
+    ff = angular_spectrum(e_nearfield_odd,
+                          wl, x_odd[1] - x_odd[0],
+                          F,
+                          bandlimit=False,
+                          pad=False)[0]
+    # farfield intensity
+    ff_I = np.abs(ff) ** 2
+
+    # airy disk is defined to be equal to 1 at r = 0
+    ff_I = ff_I / np.max(ff_I)
+
+    # calcualate error between analytic and
+    # numerical solution. In case of off by 1 error, expect error to be of order ~0.5
+    err = np.max(np.abs(ff_I - airy_odd))
+    assert err < 0.05
+
+    ci = int(N_ODD / 2)
+    ff_max_val = np.max(ff_I)
+    # expect max value at the center
+    assert np.abs(ff_I[ci, ci] - 1) < 1e-5
+
+
 
 
 if __name__ == "__main__":

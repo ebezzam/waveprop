@@ -3,9 +3,9 @@ import torch
 from waveprop.pytorch_util import fftconvolve as fftconvolve_torch
 import warnings
 from scipy.signal import fftconvolve
-from waveprop.util import ft2, ift2, sample_points, crop, _get_dtypes, zero_pad
+from waveprop.util import ft2, ift2, sample_points, sample_freq, crop, _get_dtypes, zero_pad
 from pyffs import ffsn, fs_interpn, ffs_shift
-
+from scipy.interpolate import RegularGridInterpolator
 
 def free_space_impulse_response(k, x, y, z):
     """
@@ -70,7 +70,7 @@ def direct_integration(u_in, wv, d1, dz, x, y):
     u_out = np.zeros((len(y), len(x)), dtype=complex)
     for i, xm in enumerate(x):
         for j, ym in enumerate(y):
-            G = free_space_impulse_response(k, xm - x1, ym - y1, dz)
+            G = free_space_impulse_response(k, xm - x1, ym - y1, dz[i,j])
             tmp = np.multiply(G, u_in)
             u_out[j, i] = np.sum(tmp) * d1[0] * d1[1]
     return u_out
@@ -274,13 +274,12 @@ def angular_spectrum_np(
 
     # size of the padded field
     Ny_pad, Nx_pad = u_in_pad.shape
-    Dy, Dx = (d1[0] * float(Ny_pad), d1[1] * float(Nx_pad))
+    Dy, Dx = (d1[0] * float(Ny_pad - 1), d1[1] * float(Nx_pad - 1))
 
     # frequency coordinates sampling
-    dfX = 1.0 / Dx
-    dfY = 1.0 / Dy
-    fX = np.arange(-Nx_pad / 2, Nx_pad / 2)[np.newaxis, :] * dfX
-    fY = np.arange(-Ny_pad / 2, Ny_pad / 2)[:, np.newaxis] * dfY
+    fX, fY, df = sample_freq([Nx_pad, Ny_pad], d1)
+    dfX, dfY = df
+    
     fsq = fX**2 + fY**2
 
     # compute transfer function (Saleh / Sepand's notes but w/o abs val on distance)
@@ -538,14 +537,12 @@ def angular_spectrum(
 
     # size of the padded field
     Ny_pad, Nx_pad = u_in_pad.shape
-    Dy, Dx = (d1[0] * float(Ny_pad), d1[1] * float(Nx_pad))
+    Dy, Dx = (d1[0] * float(Ny_pad - 1 ), d1[1] * float(Nx_pad - 1))
 
     # frequency coordinates sampling
-    dfX = 1.0 / Dx
-    dfY = 1.0 / Dy
-    fX = np.arange(-Nx_pad / 2, Nx_pad / 2)[np.newaxis, :] * dfX
-    fY = np.arange(-Ny_pad / 2, Ny_pad / 2)[:, np.newaxis] * dfY
-
+    fX, fY, df = sample_freq([Nx_pad, Ny_pad], d1)
+    dfX, dfY = df
+    
     # compute FT of input
     if U1 is None:
         if not return_H and not return_H_exp:
@@ -730,7 +727,6 @@ def angular_spectrum(
             u_out *= crop(
                 tmp, shape=N_out, topleft=(int(Ny - N_out[0] / 2), int(Nx - N_out[1] / 2))
             )
-
     return u_out, x2, y2
 
 
@@ -813,13 +809,11 @@ def _form_transfer_function(
 
     # size of the padded field
     Ny_pad, Nx_pad = u_in_pad.shape
-    Dy, Dx = (d1[0] * float(Ny_pad), d1[1] * float(Nx_pad))
+    Dy, Dx = (d1[0] * float(Ny_pad - 1), d1[1] * float(Nx_pad - 1))
 
     # frequency coordinates sampling
-    dfX = 1.0 / Dx
-    dfY = 1.0 / Dy
-    fX = np.arange(-Nx_pad / 2, Nx_pad / 2)[np.newaxis, :] * dfX
-    fY = np.arange(-Ny_pad / 2, Ny_pad / 2)[:, np.newaxis] * dfY
+    fX, fY, df = sample_freq([Nx_pad, Ny_pad], d1)
+    dfX, dfY = df
 
     # - compute transfer function
     fsq = fX**2 + fY**2
@@ -916,10 +910,21 @@ def _bandpass(H, fX, fY, Sx, Sy, x0, y0, z0, wv):
     :param y0:
     :return:
     """
-    du = 1 / (Sx) # not divided by 2 like in 17 since field already padded
+<<<<<<< HEAD
+    dx, dy = Sx / H.shape[0], Sy / H.shape[1]
+    TOL = 1e-10
+    print(Sx,Sy, x0, y0)
+    du = 1 / (Sx)
+    u_limit_p = ((x0 + 1 / (2 * du) + TOL) ** (-2) * z0**2 + 1) ** (-1 / 2) / wv
+    u_limit_n = ((x0 - 1 / (2 * du) + TOL) ** (-2) * z0**2 + 1) ** (-1 / 2) / wv
+    
+    if np.abs(Sx - x0) <= dx:
+=======
+    du = 1 / (Sx)
     u_limit_p = ((x0 + 1 / (2 * du)) ** (-2) * z0**2 + 1) ** (-1 / 2) / wv
     u_limit_n = ((x0 - 1 / (2 * du)) ** (-2) * z0**2 + 1) ** (-1 / 2) / wv
     if Sx < x0:
+>>>>>>> 3101074e476cd36e954767de92003fa85c7de50f
         u0 = (u_limit_p + u_limit_n) / 2
         u_width = u_limit_p - u_limit_n
     elif x0 <= -Sx:
@@ -929,10 +934,16 @@ def _bandpass(H, fX, fY, Sx, Sy, x0, y0, z0, wv):
         u0 = (u_limit_p - u_limit_n) / 2
         u_width = u_limit_p + u_limit_n
 
-    dv = 1 / (Sy) # not divided by 2 like in 18 since field already padded
+    dv = 1 / (Sy)
+<<<<<<< HEAD
+    v_limit_p = ((y0 + 1 / (2 * dv) + TOL) ** (-2) * z0**2 + 1) ** (-1 / 2) / wv
+    v_limit_n = ((y0 - 1 / (2 * dv) + TOL) ** (-2) * z0**2 + 1) ** (-1 / 2) / wv
+    if np.abs(Sy - y0) <= dy:
+=======
     v_limit_p = ((y0 + 1 / (2 * dv)) ** (-2) * z0**2 + 1) ** (-1 / 2) / wv
     v_limit_n = ((y0 - 1 / (2 * dv)) ** (-2) * z0**2 + 1) ** (-1 / 2) / wv
     if Sy < y0:
+>>>>>>> 3101074e476cd36e954767de92003fa85c7de50f
         v0 = (v_limit_p + v_limit_n) / 2
         v_width = v_limit_p - v_limit_n
     elif y0 <= -Sy:
@@ -951,4 +962,77 @@ def _bandpass(H, fX, fY, Sx, Sy, x0, y0, z0, wv):
         ).to(H.device)
     else:
         H_filter = (np.abs(fX - u0) <= fx_max) * (np.abs(fY - v0) < fy_max)
+    
     return H * H_filter
+
+#################################################
+def angular_spectrum_curved_wavefront_np(
+        u_in,
+        wv,
+        d1,
+        zz,
+        bandlimit=True,
+        pad=True,
+    ):
+    
+    if pad:
+        Ny, Nx = u_in.shape
+        u_in_pad = zero_pad(u_in)
+        Nx_pad, Ny_pad = u_in_pad.shape
+        fX, fY, df = sample_freq([Nx_pad, Ny_pad], d1)
+        dfX, dfY = df
+    else:
+        Ny, Nx = u_in.shape
+        fX, fY, df = sample_freq([Nx, Ny], d1)
+        dfX, dfY = df
+    H_exp = angular_spectrum(u_in, wv, 
+                             d1, 5, pad=pad, 
+                             bandlimit=bandlimit, return_H_exp = True)
+    
+    if pad:
+        x = np.linspace(-int(Nx/2),int(Nx/2), Nx) * d1
+        y = np.linspace(-int(Ny/2),int(Ny/2), Ny) * d1
+        x1 = np.linspace(-int(Nx_pad/2),int(Nx_pad/2), Nx_pad) * d1
+        y1 = np.linspace(-int(Ny_pad/2),int(Ny_pad/2), Ny_pad) * d1
+        xx1, yy1 = np.meshgrid(x1,y1)
+        zinterpolator = RegularGridInterpolator((x,y), zz, bounds_error=False, fill_value=None)
+        zz_pad = zinterpolator(np.array([xx1.flatten(),yy1.flatten()]).T).reshape(xx1.shape)
+        
+    if pad:
+        H = np.exp(H_exp * zz_pad)
+    else:
+        H = np.exp(H_exp * zz)
+    if bandlimit:
+        H = _bandpass(
+            H,
+            fX,
+            fY,
+            Sx=Nx_pad * d1,
+            Sy=Ny_pad * d1,
+            x0 = 0,
+            y0 = 0,
+            z0=np.max(zz),
+            wv=wv,
+        )
+        
+    if pad:
+        eff = ift2(ft2(u_in_pad, d1) * H, df)
+    else:
+        eff = ift2(ft2(u_in, d1) * H, df)
+    
+    
+    x1_pos = x[int(Nx/2):]
+    y1_pos = y[int(Ny/2):]
+    z_q = np.linspace(0, np.max(zz_pad) - np.min(zz_pad), len(x1_pos))
+    
+    xnew = np.sqrt(x1_pos**2+z_q**2)
+    xfullnew = np.concatenate([-np.flip(xnew)[0:-1],xnew])
+    xxnew,yynew = np.meshgrid(xfullnew,xfullnew)
+    
+    efield_interpolator = RegularGridInterpolator((x1,y1), eff)
+    
+    ff = efield_interpolator(np.array([xxnew.flatten(),yynew.flatten()]).T).reshape(Nx,Ny)
+    
+    return ff
+    
+    
