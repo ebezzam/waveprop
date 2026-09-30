@@ -336,6 +336,7 @@ class FlickrDataset(Dataset):
         self.root_dir = root_dir
         try:
             import pandas as pd
+
             self.df = pd.read_csv(captions_file)
         except ImportError:
             raise ImportError("Please install pandas to use this dataset")

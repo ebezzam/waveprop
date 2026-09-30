@@ -6,7 +6,6 @@ python examples/incoherent_source_adafruit_slm.py --deadspace --pytorch \
 
 """
 
-
 import numpy as np
 import time
 import progressbar

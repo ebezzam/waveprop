@@ -9,7 +9,6 @@ import warnings
 
 
 class FarFieldSimulator(object):
-
     """
     Simulate far-field propagation with the following steps:
     1. Resize digital image for desired object height and to PSF resolution.
@@ -70,7 +69,7 @@ class FarFieldSimulator(object):
         quantize : bool, optional
             Whether to quantize image to 8 bit, by default True.
         return_float : bool, optional
-            Whether to return float or uint8 image, by default True. If quantizing, 
+            Whether to return float or uint8 image, by default True. If quantizing,
             image levels will be quantized but in float format.
         """
         if is_torch:
@@ -131,12 +130,8 @@ class FarFieldSimulator(object):
         else:
             self.H = np.fft.rfft2(psf, s=self.fft_shape, axes=self.axes)
             # -- for removing padding
-            self.y_pad_edge = int(
-                (self.fft_shape[self.axes[0]] - self.conv_dim[self.axes[0]]) / 2
-            )
-            self.x_pad_edge = int(
-                (self.fft_shape[self.axes[1]] - self.conv_dim[self.axes[1]]) / 2
-            )
+            self.y_pad_edge = int((self.fft_shape[self.axes[0]] - self.conv_dim[self.axes[0]]) / 2)
+            self.x_pad_edge = int((self.fft_shape[self.axes[1]] - self.conv_dim[self.axes[1]]) / 2)
 
     def propagate(self, obj, return_object_plane=False):
         """

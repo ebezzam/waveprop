@@ -3,7 +3,6 @@ Show benefits of bandlimiting angular spectrum.
 
 """
 
-
 import numpy as np
 import matplotlib.pyplot as plt
 from waveprop.util import rect2d, sample_points, plot2d

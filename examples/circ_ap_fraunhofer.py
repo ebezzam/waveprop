@@ -9,7 +9,6 @@ Added Fresnel propagation for comparison.
 
 """
 
-
 import numpy as np
 import matplotlib.pyplot as plt
 
