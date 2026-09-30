@@ -7,7 +7,6 @@ in MATLAB" (2010).
 
 """
 
-
 import numpy as np
 import matplotlib.pyplot as plt
 

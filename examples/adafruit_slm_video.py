@@ -93,7 +93,7 @@ for dz in dz_vals:
         wv=wv,
         d1=slm_pixel_dim,
         dz=dz,
-        pyffs=True
+        pyffs=True,
         # d2=d2,
         # N_out=N_out
     )

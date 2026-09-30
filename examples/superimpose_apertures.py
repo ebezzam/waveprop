@@ -5,7 +5,6 @@ TODO : check clipping and gamma correction code
 
 """
 
-
 import progressbar
 import time
 import numpy as np

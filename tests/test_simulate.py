@@ -8,7 +8,6 @@ def test_far_field_simulator():
     sensor = "rpi_hq"
     sensor_shape = sensor_dict[sensor][SensorParam.SHAPE]
 
-
     sim = FarFieldSimulator(
         object_height=30e-2,
         scene2mask=30e-2,
