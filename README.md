@@ -30,6 +30,13 @@ conda activate waveprop
 # install
 pip install -e .
 
+# install and enable the code-formatting hook
+pip install pre-commit
+pre-commit install
+
+# optional: run the formatting check on all Python files
+pre-commit run --all-files
+
 # for CUDA, check docs for appropriate command: https://pytorch.org/
 conda install pytorch torchvision cudatoolkit=11.3 -c pytorch
 
