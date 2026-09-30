@@ -8,6 +8,9 @@ on:
       - 'examples/**'
       - 'profile/**'
       - 'setup.py'
+      - 'environment.yml'
+      - 'format_code.sh'
+      - '.pre-commit-config.yaml'
       - '.github/workflows/**'
   pull_request:
     paths:
@@ -16,6 +19,9 @@ on:
       - 'examples/**'
       - 'profile/**'
       - 'setup.py'
+      - 'environment.yml'
+      - 'format_code.sh'
+      - '.pre-commit-config.yaml'
       - '.github/workflows/**'
 
 jobs:
@@ -38,7 +44,7 @@ jobs:
           black --check --line-length 100 profile/
 
   build:
-
+    needs: format
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
