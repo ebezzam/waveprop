@@ -120,7 +120,7 @@ def fft_di(u_in, wv, d1, dz, N_out=None, use_simpson=True):
     # zero-pad
     Nx_out = N_out[0]
     Ny_out = N_out[1]
-    u_in_pad = np.zeros((Ny_out + Ny - 1, Nx_out + Nx - 1))
+    u_in_pad = np.zeros((Ny_out + Ny - 1, Nx_out + Nx - 1), dtype=np.complex128)
 
     if use_simpson:
         # Equation 17
@@ -265,9 +265,9 @@ def angular_spectrum_np(
     #     in_shift = [in_shift, in_shift]
     # assert len(in_shift) == 2
 
+    Ny, Nx = u_in.shape
     if pad:
         # zero pad to simulate linear convolution
-        Ny, Nx = u_in.shape
         u_in_pad = zero_pad(u_in)
     else:
         u_in_pad = u_in
